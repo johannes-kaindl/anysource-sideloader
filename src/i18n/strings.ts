@@ -26,6 +26,12 @@ export const STRINGS = {
       desc: "Compares every tracked plugin against the newest release of its source. Only plugins you track are checked — track them in the Browse tab.",
     },
     checkUpdatesButton: "Check now",
+    sectionUpdates: "Updates",
+    sectionInstalled: "Installed plugins",
+    sectionBrowse: "Browse catalogs",
+    catalogLoading: "Loading catalogs…",
+    catalogReload: "Reload catalogs",
+    openSettingsCommand: "Open settings",
   },
   notices: {
     updatesAvailable: (n: number) => `${n} plugin update${n === 1 ? "" : "s"} available — open AnySource Sideloader`,
@@ -66,7 +72,9 @@ export const STRINGS = {
   releaseNotes: {
     empty: "This release has no notes.",
   },
-  view: {
+  /** Texte des Store-Teils. Hiess bis 0.3.0 `view`, als es dafuer eine eigene View gab —
+   *  die ist aufgeloest, die Texte leben jetzt im Settings-Tab. */
+  store: {
     title: "AnySource Sideloader",
     ribbonTooltip: "Open AnySource Sideloader",
     openStoreCommand: "Open store",

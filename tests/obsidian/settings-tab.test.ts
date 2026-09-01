@@ -54,6 +54,13 @@ function gruppen(tab: SideloaderSettingTab): Gruppe[] {
     .filter((d) => d.type === "group");
 }
 
+/** Gruppe über ihre Überschrift statt über den Index: seit 0.3.0 stehen fünf Gruppen im
+ *  Tab (Updates, Installed, Browse, Catalogs, Access tokens), und ein Index-Zugriff bricht
+ *  bei jeder neuen Sektion, ohne dass etwas kaputt wäre. */
+function gruppe(tab: SideloaderSettingTab, heading: string): Gruppe | undefined {
+  return gruppen(tab).find((g) => g.heading === heading);
+}
+
 describe("normalizeHost", () => {
   it("reduziert eine Repo-URL auf host[:port]", () => {
     expect(normalizeHost(" https://git.example.com/owner/repo ")).toBe("git.example.com");
@@ -64,8 +71,9 @@ describe("normalizeHost", () => {
 
 describe("getSettingDefinitions — Struktur", () => {
   it("Kataloge und Tokens sind Gruppen, nicht je eine render-Hatch", () => {
-    const g = gruppen(tabFor());
-    expect(g.map((x) => x.heading)).toEqual(["Catalogs", "Access tokens"]);
+    const headings = gruppen(tabFor()).map((x) => x.heading);
+    expect(headings).toContain("Catalogs");
+    expect(headings).toContain("Access tokens");
   });
 
   it("die LISTEN-Einstellungen sind keine render-Hatch", () => {
@@ -93,22 +101,23 @@ describe("getSettingDefinitions — Struktur", () => {
   });
 
   it("jeder Katalog bekommt eine eigene Zeile — plus Beschreibung und Add-Zeile", () => {
-    const ohne = gruppen(tabFor({ catalogs: [] }))[0];
-    const mitZwei = gruppen(tabFor({ catalogs: ["https://a/c.json", "https://b/c.json"] }))[0];
+    const ohne = gruppe(tabFor({ catalogs: [] }), "Catalogs");
+    const mitZwei = gruppe(tabFor({ catalogs: ["https://a/c.json", "https://b/c.json"] }), "Catalogs");
     // Beschreibung + Add-Zeile = 2 Grundzeilen; je Katalog kommt genau eine dazu.
     expect(ohne?.items).toHaveLength(2);
     expect(mitZwei?.items).toHaveLength(4);
   });
 
   it("jeder Token-Host bekommt eine eigene Zeile — plus Beschreibung und Add-Zeile", () => {
-    const ohne = gruppen(tabFor({ hostSecrets: {} }))[1];
-    const mitZwei = gruppen(tabFor({ hostSecrets: { "a.example": "id-a", "b.example": "id-b" } }))[1];
+    const ohne = gruppe(tabFor({ hostSecrets: {} }), "Access tokens");
+    const mitZwei = gruppe(tabFor({ hostSecrets: { "a.example": "id-a", "b.example": "id-b" } }), "Access tokens");
     expect(ohne?.items).toHaveLength(2);
     expect(mitZwei?.items).toHaveLength(4);
   });
 
   it("die Erklärtexte überleben den Umbau (UI-STANDARD §10)", () => {
-    const [kataloge, tokens] = gruppen(tabFor());
+    const kataloge = gruppe(tabFor(), "Catalogs");
+    const tokens = gruppe(tabFor(), "Access tokens");
     const desc = (g: Gruppe | undefined): string =>
       String((g?.items?.[0] as { desc?: unknown } | undefined)?.desc ?? "");
     expect(desc(kataloge)).toContain("A catalog is a JSON list of plugins");
@@ -118,8 +127,8 @@ describe("getSettingDefinitions — Struktur", () => {
   it("eine Zeilen-Hatch befüllt genau ihre eigene Zeile", () => {
     // Die Zusicherung, an der der Defekt hing: die Hatch baut in das übergebene `Setting`
     // und nicht daneben. Gemessen wird, dass danach Komponenten IN dieser Zeile hängen.
-    const gruppe = gruppen(tabFor({ catalogs: ["https://a/c.json"] }))[0];
-    const zeile = gruppe?.items?.[1] as { render?: (s: Setting) => void } | undefined;
+    const g = gruppe(tabFor({ catalogs: ["https://a/c.json"] }), "Catalogs");
+    const zeile = g?.items?.[1] as { render?: (s: Setting) => void } | undefined;
     expect(typeof zeile?.render).toBe("function");
 
     const setting = new Setting(undefined as never);

@@ -12,9 +12,26 @@ import {
   type SettingDefinitionItem,
   type SettingGroupItem,
 } from "obsidian";
-import type { SideloaderSettings } from "../core/settings";
+import type { ManagedPlugin, SideloaderSettings } from "../core/settings";
+import { parseCatalog, type CatalogEntry } from "../core/catalog";
+import { catalogEntryState, filterCatalogEntries, type CatalogEntryState } from "../core/catalog-match";
+import * as gitea from "../core/forge/gitea";
+import * as gh from "../core/forge/github";
+import type { RepoRef } from "../core/forge/types";
+import { adapterFilePort, readInstalledManifest } from "./installer";
+import { resolveHostToken } from "./tokens";
 import type { SecretStore } from "./secrets";
-import type { FlowContext } from "./flows";
+import {
+  adoptFromCatalog,
+  applyUpdate,
+  checkOneUpdate,
+  fetchReleaseNotesFor,
+  installFromUrl,
+  removeInstalled,
+  type FlowContext,
+} from "./flows";
+import { ReleaseNotesModal } from "./release-notes-modal";
+import { Notice, setIcon } from "obsidian";
 import { refreshSettingsTab, renderSettingDefinitions } from "../vendor/kit-obsidian/settings_walker";
 import { STRINGS } from "../i18n/strings";
 
@@ -45,6 +62,77 @@ export class SideloaderSettingTab extends PluginSettingTab {
     private readonly host: SettingsHost,
   ) {
     super(app, host);
+  }
+
+  // ── Asynchrone Daten in einer synchronen Struktur ────────────────────────
+  //
+  // `getSettingDefinitions()` ist synchron, Katalog und installierte Manifeste kommen aber
+  // aus Netz und Platte. Deshalb ein Cache, der beim Oeffnen gefuellt wird und danach EIN
+  // `refresh()` ausloest: der erste Aufbau zeigt „laedt…“, der zweite die Eintraege. Ohne
+  // diesen Umweg muesste die Struktur auf Daten warten, die es beim Zeichnen noch nicht gibt.
+  private katalog: { stand: "kalt" | "laedt" | "da"; eintraege: CatalogEntry[]; fehler: string } = {
+    stand: "kalt",
+    eintraege: [],
+    fehler: "",
+  };
+  /** Plugin-id → Version, die TATSAECHLICH unter `.obsidian/plugins/` liegt. */
+  private installiert = new Map<string, string>();
+  private suche = "";
+
+  private async ladeKatalog(): Promise<void> {
+    this.katalog = { stand: "laedt", eintraege: [], fehler: "" };
+    const eintraege: CatalogEntry[] = [];
+    const fehler: string[] = [];
+    for (const url of this.host.settings.catalogs) {
+      try {
+        // Derselbe Host→Token-Lookup wie in den Flows: ein privater Katalog liegt auf
+        // derselben Forge wie die Plugins und braucht denselben Schluessel.
+        const token = resolveHostToken(this.host.settings, this.host.secretStore, new URL(url).host);
+        const res = await this.host.flowContext().http({ url, headers: gitea.authHeaders(token) });
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+        eintraege.push(...parseCatalog(res.text).plugins);
+      } catch (err) {
+        fehler.push(err instanceof Error ? err.message : String(err));
+      }
+    }
+
+    // Der echte Bestand auf der Platte — nicht `settings.plugins`. Genau diese
+    // Verwechslung machte das Plugin bis 0.1.1 im vollen Vault blind.
+    const port = adapterFilePort(this.app);
+    const ids = new Set([...eintraege.map((e) => e.id), ...this.host.settings.plugins.map((p) => p.id)]);
+    this.installiert.clear();
+    for (const id of ids) {
+      const m = await readInstalledManifest(port, this.app.vault.configDir, id).catch(() => null);
+      if (m) this.installiert.set(id, m.version);
+    }
+
+    this.katalog = { stand: "da", eintraege, fehler: fehler.join("; ") };
+    this.refresh();
+  }
+
+  private zustandVon(entry: CatalogEntry): CatalogEntryState {
+    return catalogEntryState(entry, this.installiert.get(entry.id) ?? null, this.host.settings.plugins);
+  }
+
+  /** Status-Indikator nach UI-STANDARD §8: Form UND Farbe UND Klasse UND aria-label. */
+  private status(el: HTMLElement, state: "ok" | "warning" | "error", label: string): void {
+    const icons = { ok: "circle-check", warning: "alert-triangle", error: "circle-x" } as const;
+    const wrap = el.createSpan({ cls: `asl-status is-${state}`, attr: { "aria-label": label } });
+    setIcon(wrap.createSpan({ cls: "asl-status-icon" }), icons[state]);
+    wrap.createSpan({ cls: "asl-status-label", text: label });
+  }
+
+  private issuesUrl(ref: RepoRef): string {
+    return ref.kind === "github" ? gh.issuesUrl(ref) : gitea.issuesUrl(ref);
+  }
+
+  private async releaseNotes(plugin: ManagedPlugin, name: string): Promise<void> {
+    try {
+      const info = await fetchReleaseNotesFor(this.host.flowContext(), plugin.id);
+      new ReleaseNotesModal(this.app, `${name} ${info?.version ?? plugin.installedVersion}`, info?.notes ?? "").open();
+    } catch {
+      new ReleaseNotesModal(this.app, name, "").open();
+    }
   }
 
   // ── Die eine Wahrheit ────────────────────────────────────────────────────
@@ -132,6 +220,21 @@ export class SideloaderSettingTab extends PluginSettingTab {
       },
       {
         type: "group",
+        heading: STRINGS.settings.sectionUpdates,
+        items: this.updateItems(),
+      },
+      {
+        type: "group",
+        heading: STRINGS.settings.sectionInstalled,
+        items: this.installedItems(),
+      },
+      {
+        type: "group",
+        heading: STRINGS.settings.sectionBrowse,
+        items: this.browseItems(),
+      },
+      {
+        type: "group",
         heading: STRINGS.settings.catalogs.name,
         items: this.catalogItems(),
       },
@@ -161,11 +264,236 @@ export class SideloaderSettingTab extends PluginSettingTab {
 
   // ── Listen als Definitionen (ein Code, beide Pfade) ──────────────────────
 
+  /** Hinweiszeile (Empty-State, Fehler, Erklaertext) als SICHTBARE Zeile.
+   *
+   *  ⚠️ `{ name: "", desc: "…" }` allein genuegt nicht: ein Item ohne Namen und ohne
+   *  Bedienelement zeichnet Obsidian nicht sichtbar (gemessen 2026-09-02 an 1.13.7 — die
+   *  Browse-Sektion meldete korrekt „No catalog could be loaded", und im DOM stand
+   *  nichts). Deshalb eine `render`-Hatch, die den Text selbst in die Zeile setzt und die
+   *  Empty-State-Klasse aus UI-STANDARD §8 traegt. */
+  private hinweisItem(text: string): SettingGroupItem<keyof SideloaderSettings> {
+    return {
+      name: "",
+      desc: text,
+      render: (row: Setting) => {
+        row.settingEl.addClass("asl-empty");
+        row.setDesc(text);
+      },
+    };
+  }
+
   /** Erklaertext der Gruppe als eigene Zeile. `heading` traegt nur den Namen, und der
    *  Erklaertext ist nach UI-STANDARD §10 Pflicht — er darf nicht dem Umbau zum Opfer
    *  fallen. */
   private descItem(desc: string): SettingGroupItem<keyof SideloaderSettings> {
-    return { name: "", desc };
+    return this.hinweisItem(desc);
+  }
+
+  /** Eine Zeile je Plugin mit bekanntem Rueckstand. Kein eigenes CSS: `Setting` liefert
+   *  Name, Beschreibung und Aktionsleiste — genau der Grund, warum diese Listen hier und
+   *  nicht in einer eigenen View stehen. */
+  private updateItems(): SettingGroupItem<keyof SideloaderSettings>[] {
+    const items: SettingGroupItem<keyof SideloaderSettings>[] = [];
+    const faellig = this.host.settings.plugins.filter((p) => p.availableVersion !== null);
+
+    if (faellig.length === 0) {
+      items.push(this.hinweisItem(
+        this.host.settings.plugins.length === 0 ? STRINGS.notices.nothingTracked : STRINGS.store.noUpdates,
+      ));
+    }
+
+    for (const plugin of faellig) {
+      items.push({
+        name: plugin.id,
+        desc: STRINGS.store.installedOutdated(plugin.installedVersion, plugin.availableVersion ?? ""),
+        render: (row: Setting) => {
+          row.setName(plugin.id).setDesc(
+            STRINGS.store.installedOutdated(plugin.installedVersion, plugin.availableVersion ?? ""),
+          );
+          row.addButton((btn) =>
+            btn.setButtonText(STRINGS.store.releaseNotesAction).onClick(() => {
+              void this.releaseNotes(plugin, plugin.id);
+            }),
+          );
+          row.addButton((btn) =>
+            btn
+              .setButtonText(STRINGS.store.update)
+              .setCta()
+              .onClick(() => {
+                void applyUpdate(this.host.flowContext(), plugin.id).finally(() => { this.refresh(); });
+              }),
+          );
+        },
+      });
+    }
+    return items;
+  }
+
+  /** Eine Zeile je verwaltetem Plugin: Status, Pruefen, Notes, Melden, Entfernen. */
+  private installedItems(): SettingGroupItem<keyof SideloaderSettings>[] {
+    const plugins = this.host.settings.plugins;
+    if (plugins.length === 0) {
+      return [this.hinweisItem(STRINGS.store.noInstalled)];
+    }
+    return plugins.map((plugin) => ({
+      name: plugin.id,
+      desc: new URL(plugin.ref.baseUrl).host,
+      render: (row: Setting) => {
+        // Die angezeigte Version kommt von der PLATTE, nicht aus den Einstellungen — beide
+        // laufen auseinander, sobald jemand am Sideloader vorbei aktualisiert.
+        const aufPlatte = this.installiert.get(plugin.id) ?? plugin.installedVersion;
+        row.setName(plugin.id).setDesc(`${aufPlatte} · ${new URL(plugin.ref.baseUrl).host}`);
+        if (plugin.availableVersion) {
+          this.status(row.controlEl, "warning", STRINGS.store.updateAvailable(plugin.availableVersion));
+        } else {
+          this.status(row.controlEl, "ok", STRINGS.store.upToDateStatus);
+        }
+        row.addButton((btn) =>
+          btn.setButtonText(STRINGS.store.check).onClick(() => {
+            void checkOneUpdate(this.host.flowContext(), plugin.id).then((fehler) => {
+              if (fehler) new Notice(STRINGS.notices.checkFailed(plugin.id, fehler));
+              this.refresh();
+            });
+          }),
+        );
+        row.addButton((btn) =>
+          btn.setButtonText(STRINGS.store.releaseNotesAction).onClick(() => {
+            void this.releaseNotes(plugin, plugin.id);
+          }),
+        );
+        row.addExtraButton((btn) =>
+          btn
+            .setIcon("bug")
+            .setTooltip(STRINGS.store.reportIssue)
+            .onClick(() => { window.open(this.issuesUrl(plugin.ref), "_blank", "noopener,noreferrer"); }),
+        );
+        row.addExtraButton((btn) =>
+          btn
+            .setIcon("trash-2")
+            .setTooltip(STRINGS.store.remove)
+            .onClick(() => {
+              void removeInstalled(this.host.flowContext(), plugin.id).finally(() => { this.refresh(); });
+            }),
+        );
+      },
+    }));
+  }
+
+  /** Katalog-Eintraege mit ihrem echten Zustand im Vault. */
+  private browseItems(): SettingGroupItem<keyof SideloaderSettings>[] {
+    if (this.host.settings.catalogs.length === 0) {
+      return [this.hinweisItem(STRINGS.store.noCatalogs)];
+    }
+    if (this.katalog.stand !== "da") {
+      if (this.katalog.stand === "kalt") void this.ladeKatalog();
+      return [this.hinweisItem(STRINGS.settings.catalogLoading)];
+    }
+    if (this.katalog.eintraege.length === 0) {
+      return [this.hinweisItem(STRINGS.store.noCatalogEntries(this.katalog.fehler || "empty"))];
+    }
+
+    const items: SettingGroupItem<keyof SideloaderSettings>[] = [];
+
+    // Suchfeld + Sammelaktion in EINER Zeile — beide betreffen die Liste als Ganzes.
+    const uebernehmbar = this.katalog.eintraege.filter((e) => this.zustandVon(e).kind === "unmanaged");
+    items.push({
+      name: "",
+      render: (row: Setting) => {
+        row.addSearch((c) =>
+          c
+            .setPlaceholder(STRINGS.store.searchPlaceholder)
+            .setValue(this.suche)
+            .onChange((v) => {
+              this.suche = v;
+              this.refresh();
+            }),
+        );
+        if (uebernehmbar.length > 0) {
+          row.addButton((btn) =>
+            btn
+              .setButtonText(STRINGS.store.manageAll(uebernehmbar.length))
+              .setCta()
+              .onClick(() => { void this.uebernimmAlle(uebernehmbar); }),
+          );
+        }
+        row.addExtraButton((btn) =>
+          btn
+            .setIcon("refresh-cw")
+            .setTooltip(STRINGS.settings.catalogReload)
+            .onClick(() => { void this.ladeKatalog(); }),
+        );
+      },
+    });
+
+    const gefiltert = filterCatalogEntries(this.katalog.eintraege, this.suche);
+    if (gefiltert.length === 0) {
+      items.push(this.hinweisItem(STRINGS.store.noMatches));
+      return items;
+    }
+
+    for (const entry of gefiltert) {
+      const zustand = this.zustandVon(entry);
+      items.push({
+        name: entry.name,
+        desc: entry.description,
+        render: (row: Setting) => {
+          row.setName(entry.name).setDesc(`${entry.description} · ${STRINGS.store.byAuthor(entry.author)}`);
+          if (zustand.kind === "not-installed") {
+            row.addButton((btn) =>
+              btn
+                .setButtonText(STRINGS.store.install)
+                .setCta()
+                .onClick(() => {
+                  void installFromUrl(this.host.flowContext(), entry.repo, entry.id).finally(() => {
+                    void this.ladeKatalog();
+                  });
+                }),
+            );
+            return;
+          }
+          if (zustand.kind === "unmanaged") {
+            this.status(row.controlEl, "warning", STRINGS.store.installedUnmanaged(zustand.installedVersion));
+            row.addButton((btn) =>
+              btn.setButtonText(STRINGS.store.manage).onClick(() => {
+                void adoptFromCatalog(this.host.flowContext(), entry, zustand.installedVersion)
+                  .then((ok) => {
+                    if (ok) new Notice(STRINGS.notices.adopted(entry.name, zustand.installedVersion));
+                  })
+                  .finally(() => { this.refresh(); });
+              }),
+            );
+            return;
+          }
+          if (zustand.availableVersion) {
+            this.status(
+              row.controlEl,
+              "warning",
+              STRINGS.store.installedOutdated(zustand.installedVersion, zustand.availableVersion),
+            );
+          } else {
+            this.status(row.controlEl, "ok", STRINGS.store.installedCurrent(zustand.installedVersion));
+          }
+        },
+      });
+    }
+    return items;
+  }
+
+  /** Sequenziell: jede Uebernahme probt ihre Forge, und zwanzig gleichzeitige Anfragen an
+   *  dieselbe Instanz sind der schnellste Weg in ein Rate-Limit. */
+  private async uebernimmAlle(entries: readonly CatalogEntry[]): Promise<void> {
+    let n = 0;
+    for (const entry of entries) {
+      const zustand = this.zustandVon(entry);
+      if (zustand.kind !== "unmanaged") continue;
+      try {
+        if (await adoptFromCatalog(this.host.flowContext(), entry, zustand.installedVersion)) n++;
+      } catch (err) {
+        new Notice(STRINGS.notices.adoptFailed(entry.name, err instanceof Error ? err.message : String(err)));
+      }
+    }
+    if (n > 0) new Notice(STRINGS.notices.adoptedAll(n));
+    this.refresh();
   }
 
   private catalogItems(): SettingGroupItem<keyof SideloaderSettings>[] {
