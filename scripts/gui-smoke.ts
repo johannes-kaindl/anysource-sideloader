@@ -365,13 +365,30 @@ async function readSettings(cdp: Cdp): Promise<SettingsSnapshot> {
   `);
 }
 
-/** Settings des Prüflings setzen und persistieren. */
+/**
+ * Settings des Prüflings setzen, persistieren **und den Settings-Tab neu aufbauen**.
+ *
+ * Das Neuaufbauen ist nicht Kosmetik: Obsidian ruft `getSettingDefinitions()` **einmal bei
+ * der Registrierung** und cacht das Ergebnis (gemessen 2026-09-01). Eine Änderung von außen
+ * — und genau das tut ein Treiber — erreicht den gezeichneten Tab deshalb nicht. Ohne diesen
+ * Schritt maß der erste Lauf des umgebauten Smoke einen Zustand von vorher: bei leerer
+ * Abo-Liste standen noch 22 Katalog-Einträge in der Sektion.
+ *
+ * ⚠️ Das ist ein Messartefakt, kein Produktdefekt: im echten Ablauf ändert der Nutzer die
+ * Einstellungen *durch* die UI, und die ruft ihr `refresh()` selbst. Wer den Unterschied
+ * nicht macht, repariert am Prüfling herum, wo das Werkzeug schuld ist.
+ */
 async function writeSettings(cdp: Cdp, patch: Record<string, unknown>): Promise<void> {
   await cdp.evaluate(`
     const plugin = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
     Object.assign(plugin.settings, ${JSON.stringify(patch)});
     await plugin.saveSettings();
-    await new Promise((r) => setTimeout(r, 250));
+    const tab = (app.setting.pluginTabs ?? []).find((t) => t.id === ${JSON.stringify(PLUGIN_ID)});
+    if (tab) {
+      if (typeof tab.update === "function") tab.update();
+      else if (typeof tab.display === "function") tab.display();
+    }
+    await new Promise((r) => setTimeout(r, 400));
     return true;
   `);
 }
@@ -464,6 +481,132 @@ async function settingsStelle(cdp: Cdp, verbindung: Verbindung): Promise<Setting
   };
 }
 
+/**
+ * Einstellungs-Tab oeffnen, darin messen, danach schliessen.
+ *
+ * Seit 0.3.0 lebt der ganze Store im Einstellungs-Tab — Katalog, Installierte, Updates.
+ * Damit braucht fast jeder Abschnitt dieselbe Vorbereitung, und ohne diesen Helfer stuende
+ * sie viermal da. Das `finally` schliesst auch nach einem Abbruch: ein offen gebliebenes
+ * Einstellungs-Fenster laesst den naechsten `attachTo("settings", …)` auf ein Fenster
+ * treffen, das der vorige Abschnitt hinterlassen hat.
+ */
+async function mitSettings<T>(
+  cdp: Cdp,
+  verbindung: Verbindung,
+  fn: (stelle: SettingsStelle) => Promise<T>,
+): Promise<T | null> {
+  await cdp.evaluate(`
+    app.setting.open();
+    await new Promise((r) => setTimeout(r, 500));
+    app.setting.openTabById(${JSON.stringify(PLUGIN_ID)});
+    await new Promise((r) => setTimeout(r, 1200));
+    return true;
+  `);
+  const stelle = await settingsStelle(cdp, verbindung);
+  if (!stelle) return null;
+  try {
+    if (stelle.eigenesFenster) await requireVisible(stelle.cdp).catch(() => undefined);
+    return await fn(stelle);
+  } finally {
+    if (stelle.eigenesFenster) {
+      await releaseAlwaysOnTop(stelle.cdp).catch(() => undefined);
+      stelle.cdp.close();
+    }
+    await cdp
+      .evaluate(`app.setting.close(); await new Promise((r) => setTimeout(r, 300)); return true;`)
+      .catch(() => undefined);
+  }
+}
+
+/** Alle Zeilen einer Sektion, in Reihenfolge — eine Sektion beginnt an ihrer
+ *  `setting-item-heading` und endet an der naechsten. Gemessen wird die SICHTBARE Struktur,
+ *  nicht `getSettingDefinitions()`: dass die Definition existiert, sagt nichts darueber,
+ *  ob Obsidian sie zeichnet (genau daran hing der Empty-State-Befund). */
+function sektionZeilenAusdruck(heading: string): string {
+  return `
+    const items = [...root.querySelectorAll(".setting-item")];
+    const start = items.findIndex((i) =>
+      i.classList.contains("setting-item-heading") &&
+      i.querySelector(".setting-item-name")?.textContent?.trim() === ${JSON.stringify(heading)});
+    if (start === -1) return null;
+    const zeilen = [];
+    for (let k = start + 1; k < items.length; k++) {
+      const i = items[k];
+      if (i.classList.contains("setting-item-heading")) break;
+      zeilen.push({
+        name: i.querySelector(".setting-item-name")?.textContent?.trim() ?? "",
+        desc: i.querySelector(".setting-item-description")?.textContent?.trim() ?? "",
+        knoepfe: [...i.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
+        status: [...(i.querySelector(".asl-status")?.classList ?? [])].filter((c) => c.startsWith("is-")).join(","),
+        statusText: i.querySelector(".asl-status-label")?.textContent?.trim() ?? "",
+        sichtbar: i.getClientRects().length > 0,
+      });
+    }
+    return zeilen;
+  `;
+}
+
+interface SettingsZeile {
+  name: string;
+  desc: string;
+  knoepfe: string[];
+  status: string;
+  statusText: string;
+  sichtbar: boolean;
+}
+
+async function sektion(stelle: SettingsStelle, heading: string): Promise<SettingsZeile[] | null> {
+  return stelle.cdp.evaluate<SettingsZeile[] | null>(stelle.inRoot(sektionZeilenAusdruck(heading)));
+}
+
+/** Auf eine Sektion warten, deren Zeilen eine Bedingung erfuellen — der Katalog kommt aus
+ *  dem Netz und ist beim ersten Zeichnen noch nicht da. */
+async function sektionBis(
+  stelle: SettingsStelle,
+  heading: string,
+  pruef: (z: SettingsZeile[]) => boolean,
+  timeoutMs = 20_000,
+): Promise<SettingsZeile[] | null> {
+  const frist = Date.now() + timeoutMs;
+  let zuletzt: SettingsZeile[] | null = null;
+  while (Date.now() < frist) {
+    zuletzt = await sektion(stelle, heading);
+    if (zuletzt && pruef(zuletzt)) return zuletzt;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return zuletzt;
+}
+
+/** Einen Knopf in der Zeile klicken, deren Name `name` ist (leerer Name = erste Zeile
+ *  der Sektion). Echter Mausklick, kein `element.click()`. */
+async function klickInZeile(
+  stelle: SettingsStelle,
+  heading: string,
+  zeilenName: string,
+  knopf: string,
+): Promise<boolean> {
+  return clickReal(
+    stelle.cdp,
+    stelle.el(`(() => {
+      const items = [...root.querySelectorAll(".setting-item")];
+      const start = items.findIndex((i) =>
+        i.classList.contains("setting-item-heading") &&
+        i.querySelector(".setting-item-name")?.textContent?.trim() === ${JSON.stringify(heading)});
+      if (start === -1) return null;
+      for (let k = start + 1; k < items.length; k++) {
+        const i = items[k];
+        if (i.classList.contains("setting-item-heading")) break;
+        const n = i.querySelector(".setting-item-name")?.textContent?.trim() ?? "";
+        if (${JSON.stringify(zeilenName)} !== "" && n !== ${JSON.stringify(zeilenName)}) continue;
+        const b = [...i.querySelectorAll("button")].find((x) => x.textContent.trim() === ${JSON.stringify(knopf)});
+        if (b) return b;
+      }
+      return null;
+    })()`),
+    150,
+  );
+}
+
 // --- Abschnitte --------------------------------------------------------------
 
 interface Section {
@@ -474,415 +617,277 @@ interface Section {
 
 const SECTIONS: Section[] = [
   {
-    key: "hub",
-    title: "A — Store-View und Hub-Tab-Leiste",
-    run: async (cdp) => {
-      const opened = await openStore(cdp);
-      check("A1 Befehl „Open store“ öffnet die View", opened, opened ? "" : "kein .okit-hub-root nach 12 s");
-      if (!opened) return;
+    key: "sektionen",
+    title: "A — Der Store lebt im Einstellungs-Tab: Sektionen und Empty-States",
+    run: async (cdp, forge, cfg, verbindung) => {
+      // Bis 0.2.1 stand hier ein Hub in der Sidebar. Er ist aufgeloest: Obsidians nativer
+      // Ort fuer Plugin-Verwaltung ist der Einstellungs-Tab, und dort liefert die
+      // `Setting`-API Layout und Typografie — genau das eigene CSS, an dem die zu grosse
+      // Schrift hing, faellt damit weg statt repariert zu werden.
+      await removeTargetPlugin(cdp, cfg);
+      await writeSettings(cdp, { catalogs: [], plugins: [], hostSecrets: {} });
 
-      const tabs = await cdp.evaluate<{ labels: string[]; active: string } | null>(
-        inView(`
-          const btns = [...root.querySelectorAll(".okit-hub-tab")];
-          return {
-            labels: btns.map((b) => b.querySelector(".okit-hub-tab-label")?.textContent?.trim() ?? "(ohne Label)"),
-            active: btns.find((b) => b.classList.contains("is-active"))?.getAttribute("data-tab") ?? "(keiner)",
-          };
-        `),
-      );
-      const erwartet = ["Browse", "Installed", "Updates"];
-      check(
-        "A2 drei Tabs mit Label, Browse aktiv",
-        tabs !== null && JSON.stringify(tabs.labels) === JSON.stringify(erwartet) && tabs.active === "browse",
-        tabs ? `Labels: ${tabs.labels.join(", ")} · aktiv: ${tabs.active}` : "keine Tab-Leiste gefunden",
-      );
+      const ergebnis = await mitSettings(cdp, verbindung, async (stelle) => {
+        const headings = await stelle.cdp.evaluate<string[] | null>(
+          stelle.inRoot(`
+            return [...root.querySelectorAll(".setting-item-heading .setting-item-name")]
+              .map((e) => e.textContent.trim());
+          `),
+        );
+        const erwartet = ["Updates", "Installed plugins", "Browse catalogs", "Catalogs", "Access tokens"];
+        check(
+          "A1 alle fuenf Sektionen sind gezeichnet",
+          headings !== null && erwartet.every((h) => headings.includes(h)),
+          `Ueberschriften: ${headings?.join(" · ") ?? "(keine)"}`,
+        );
 
-      // Der Tabwechsel wird über einen ECHTEN Mausklick gefahren, nicht über setTab():
-      // gemessen wird die Bedienung, nicht die Methode dahinter.
-      const wechsel = await clickTab(cdp, "installed");
-      const nach = await cdp.evaluate<{ active: string; sichtbar: string[] } | null>(
-        inView(`
-          const panels = [...root.querySelectorAll(".okit-hub-panel")];
-          return {
-            active: [...root.querySelectorAll(".okit-hub-tab")].find((b) => b.classList.contains("is-active"))?.getAttribute("data-tab") ?? "(keiner)",
-            sichtbar: panels.filter((p) => p.getClientRects().length > 0).map((p) => p.getAttribute("data-tab")),
-          };
-        `),
-      );
-      check(
-        "A3 Klick auf „Installed“ blendet genau ein Panel ein",
-        wechsel && nach?.active === "installed" && JSON.stringify(nach.sichtbar) === JSON.stringify(["installed"]),
-        nach ? `aktiv: ${nach.active} · sichtbar: ${nach.sichtbar.join(",") || "keins"}` : "Panel-Zustand nicht lesbar",
-      );
+        // Die Sektionen entstehen ueber `setHeading()` (UI-STANDARD §5) — kein eigenes
+        // Heading-Element. Ein <h3> im Tab waere der Rueckweg in genau den Defekt, der den
+        // Umbau ausgeloest hat (Karten-Titel ohne Groessenregel, viel zu grosse Schrift).
+        const eigeneHeadings = await stelle.cdp.evaluate<number>(
+          stelle.inRoot(`return root.querySelectorAll(".setting-item h1, .setting-item h2, .setting-item h3").length;`),
+        );
+        check(
+          "A2 keine selbstgebauten Ueberschriften (§5: setHeading statt <h3>)",
+          eigeneHeadings === 0,
+          `eigene h1/h2/h3 im Tab: ${eigeneHeadings}`,
+        );
 
-      // Roving tabindex + Pfeiltasten sind der ARIA-Vertrag der Kit-Leiste (hub.ts,
-      // Falle 6): inaktive Tabs sind bewusst NICHT per Tab-Taste erreichbar, dafür
-      // navigieren die Pfeiltasten. Ein Bruch fällt sonst nirgends auf.
-      const aria = await cdp.evaluate<{ roving: string[]; selected: string[] } | null>(
-        inView(`
-          const btns = [...root.querySelectorAll(".okit-hub-tab")];
-          return {
-            roving: btns.map((b) => b.getAttribute("tabindex") ?? "(fehlt)"),
-            selected: btns.map((b) => b.getAttribute("aria-selected") ?? "(fehlt)"),
-          };
-        `),
-      );
-      check(
-        "A4 roving tabindex: genau ein Tab fokussierbar, aria-selected passend",
-        aria !== null && aria.roving.filter((t) => t === "0").length === 1 && aria.selected.filter((s) => s === "true").length === 1,
-        aria ? `tabindex: ${aria.roving.join(",")} · aria-selected: ${aria.selected.join(",")}` : "keine Tabs",
-      );
+        // Empty-States: gemessen wird die SICHTBARKEIT, nicht die Existenz. Ein Item mit
+        // leerem Namen und nur `desc` zeichnet Obsidian NICHT — daran hing der Befund vom
+        // 2026-09-02, und ohne diesen Punkt faellt er beim naechsten Mal genauso durch.
+        const updates = await sektion(stelle, "Updates");
+        const installed = await sektion(stelle, "Installed plugins");
+        const browse = await sektion(stelle, "Browse catalogs");
+        const sichtbarMitText = (z: SettingsZeile[] | null, teil: string): boolean =>
+          Boolean(z?.some((r) => r.sichtbar && (r.desc.includes(teil) || r.name.includes(teil))));
 
-      const pfeil = await cdp.evaluate<string>(
-        inView(`
-          const btn = root.querySelector('.okit-hub-tab[data-tab="installed"]');
-          btn.focus();
-          btn.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-          await new Promise((r) => setTimeout(r, 400));
-          return [...root.querySelectorAll(".okit-hub-tab")].find((b) => b.classList.contains("is-active"))?.getAttribute("data-tab") ?? "(keiner)";
-        `),
-      );
-      check("A5 Pfeil rechts wechselt auf „Updates“", pfeil === "updates", `aktiv nach ArrowRight: ${pfeil}`);
-    },
-  },
-
-  {
-    key: "empty",
-    title: "B — Empty-States (UI-STANDARD §8: verbindlicher Baustein)",
-    run: async (cdp) => {
-      await writeSettings(cdp, { catalogs: [], plugins: [] });
-      const ok = await reopenStore(cdp);
-      if (!ok) {
-        check("B0 View nach Settings-Reset offen", false, "Store-View ließ sich nicht neu öffnen");
-        return;
-      }
-
-      const browse = await panelText(cdp, "browse");
-      check(
-        "B1 Browse ohne Katalog nennt den Ausweg (Settings)",
-        browse?.visible === true && browse.text.includes("No catalogs are configured yet"),
-        browse ? `sichtbar: ${browse.visible} · Text: „${browse.text.slice(0, 90)}“` : "kein Browse-Panel",
-      );
-
-      await clickTab(cdp, "installed");
-      const installed = await panelText(cdp, "installed");
-      check(
-        "B2 Installed ohne Plugins zeigt den Empty-State",
-        installed?.visible === true && installed.text.includes("No plugins are sideloaded yet"),
-        installed ? `Text: „${installed.text.slice(0, 90)}“` : "kein Installed-Panel",
-      );
-
-      await clickTab(cdp, "updates");
-      const updates = await panelText(cdp, "updates");
-      check(
-        "B3 Updates ohne Rückstand zeigt den Empty-State",
-        updates?.visible === true && updates.text.includes("Everything up to date"),
-        updates ? `Text: „${updates.text.slice(0, 90)}“` : "kein Updates-Panel",
-      );
-
-      // Der Empty-State muss der Kit-Grammatik folgen (.asl-empty), sonst greift kein
-      // Theme-CSS — gemessen wird die Klasse UND dass sie wirklich Fläche hat.
-      const grammatik = await cdp.evaluate<{ klasse: boolean; hoehe: number } | null>(
-        inView(`
-          const el = root.querySelector('.okit-hub-panel[data-tab="updates"] .asl-empty');
-          if (!el) return null;
-          return { klasse: true, hoehe: Math.round(el.getBoundingClientRect().height) };
-        `),
-      );
-      check(
-        "B4 Empty-State nutzt .asl-empty und hat Fläche",
-        grammatik !== null && grammatik.hoehe > 0,
-        grammatik ? `Höhe: ${grammatik.hoehe}px` : "kein .asl-empty im Updates-Panel",
-      );
+        check(
+          "A3 Updates ohne verwaltete Plugins sagt, dass nichts verfolgt wird",
+          sichtbarMitText(updates, "No plugins are tracked yet"),
+          `Zeilen: ${updates?.map((r) => `${r.sichtbar ? "" : "(unsichtbar) "}${r.desc || r.name}`).join(" | ") ?? "(keine Sektion)"}`,
+        );
+        check(
+          "A4 Installed zeigt seinen Empty-State sichtbar",
+          sichtbarMitText(installed, "No plugins are sideloaded yet"),
+          `Zeilen: ${installed?.map((r) => `${r.sichtbar ? "" : "(unsichtbar) "}${r.desc || r.name}`).join(" | ") ?? "(keine Sektion)"}`,
+        );
+        check(
+          "A5 Browse ohne Katalog nennt den Ausweg",
+          sichtbarMitText(browse, "No catalogs are configured yet"),
+          `Zeilen: ${browse?.map((r) => `${r.sichtbar ? "" : "(unsichtbar) "}${r.desc || r.name}`).join(" | ") ?? "(keine Sektion)"}`,
+        );
+        return true;
+      });
+      if (ergebnis === null) check("A0 Einstellungs-Tab erreichbar", false, "settingsStelle lieferte nichts");
     },
   },
 
   {
     key: "katalog",
     title: "C — Katalog, Install, Update, Remove (gegen die lokale Forge)",
-    run: async (cdp, forge, cfg) => {
-      await writeSettings(cdp, { catalogs: [forge.catalogUrl], plugins: [] });
+    run: async (cdp, forge, cfg, verbindung) => {
       await removeTargetPlugin(cdp, cfg);
-      const ok = await reopenStore(cdp);
-      if (!ok) {
-        check("C0 Store-View offen", false, "Store-View ließ sich nicht öffnen");
-        return;
-      }
+      await writeSettings(cdp, { catalogs: [forge.catalogUrl], plugins: [], hostSecrets: {} });
+      forge.setVersion("1.0.0");
 
-      const karten = await pollUntil<{ titel: string[]; autoren: string[]; tags: string[] } | null>(
-        cdp,
-        inView(`
-          const cards = [...root.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card')];
-          if (cards.length === 0) return null;
-          return {
-            titel: cards.map((c) => c.querySelector(".asl-card-title")?.textContent?.trim() ?? ""),
-            autoren: cards.map((c) => c.querySelector(".asl-card-author")?.textContent?.trim() ?? ""),
-            tags: [...root.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-tag')].map((t) => t.textContent.trim()),
-          };
-        `),
-        15_000,
-        300,
-      );
-      const browseText = (await panelText(cdp, "browse"))?.text ?? "";
-      check(
-        "C1 Katalog geladen: zwei Karten mit Name, Autor, Tags",
-        karten !== null && karten.titel.length === 2 && karten.titel.includes(TARGET_PLUGIN_NAME) && karten.autoren[0] === "by gui-smoke",
-        karten ? `Titel: ${karten.titel.join(" / ")} · Tags: ${karten.tags.join(",")}` : `keine Karte — Panel sagt: „${browseText.slice(0, 120)}“`,
-      );
+      await mitSettings(cdp, verbindung, async (stelle) => {
+        // Der Katalog kommt aus dem Netz; die erste Zeichnung zeigt „Loading catalogs…“.
+        const eintraege = await sektionBis(
+          stelle,
+          "Browse catalogs",
+          (z) => z.some((r) => r.name === TARGET_PLUGIN_NAME),
+        );
+        check(
+          "C1 Katalog geladen: beide Eintraege stehen als Zeilen im Tab",
+          eintraege !== null &&
+            eintraege.some((r) => r.name === TARGET_PLUGIN_NAME) &&
+            eintraege.some((r) => r.name === "Search Decoy"),
+          `Zeilen: ${eintraege?.map((r) => r.name || `(${r.desc.slice(0, 40)})`).join(" | ") ?? "(keine)"}`,
+        );
 
-      const gefiltert = await cdp.evaluate<{ vor: number; nach: number; text: string } | null>(
-        inView(`
-          const panel = root.querySelector('.okit-hub-panel[data-tab="browse"]');
-          const input = panel.querySelector(".asl-search-input");
-          if (!input) return null;
-          const vor = panel.querySelectorAll(".asl-card").length;
-          input.value = "decoy";
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          await new Promise((r) => setTimeout(r, 300));
-          const nach = panel.querySelectorAll(".asl-card").length;
-          const text = panel.querySelector(".asl-card-title")?.textContent?.trim() ?? "";
-          input.value = "";
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          await new Promise((r) => setTimeout(r, 300));
-          return { vor, nach, text };
-        `),
-      );
-      check(
-        "C2 Suchfeld filtert die Kartenliste",
-        gefiltert !== null && gefiltert.vor === 2 && gefiltert.nach === 1 && gefiltert.text === "Search Decoy",
-        gefiltert ? `${gefiltert.vor} → ${gefiltert.nach} Karten, übrig: „${gefiltert.text}“` : "kein Suchfeld",
-      );
+        const zielzeile = eintraege?.find((r) => r.name === TARGET_PLUGIN_NAME);
+        check(
+          "C2 ein nicht installierter Eintrag bietet „Install“",
+          zielzeile?.knoepfe.includes("Install") === true,
+          `Knoepfe: ${zielzeile?.knoepfe.join(",") ?? "(keine Zeile)"}`,
+        );
 
-      // ── Install-Kette: HTTP-Warnung → Install-Confirm → Abbrechen ──────────
-      // Der Abbruch ist der eigentliche Prüfpunkt: ein Confirm, das man wegklicken kann
-      // und das trotzdem installiert, ist schlimmer als keines.
-      await closeModals(cdp);
-      await clearNotices(cdp);
-      const installExpr = `(() => {
-        const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
-        const root = leaf?.view?.containerEl;
-        const card = [...(root?.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card') ?? [])]
-          .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
-        return card?.querySelector("button") ?? null;
-      })()`;
-      const geklickt = await clickReal(cdp, installExpr, 150);
-      const httpModal = await waitForModal(cdp, "Install");
-      check(
-        "C3 HTTP-Quelle warnt vor unverschlüsseltem Transport",
-        geklickt && httpModal !== null && httpModal.text.includes("plain HTTP"),
-        httpModal ? `Modal: „${httpModal.text.slice(0, 100)}“ · Knöpfe: ${httpModal.buttons.join("/")}` : "kein Modal nach Install-Klick",
-      );
-      if (httpModal) await clickModalButton(cdp, "Install");
+        // ── Install-Kette: HTTP-Warnung → Confirm → Abbrechen ──────────────
+        await closeModals(stelle.cdp);
+        await clearNotices(stelle.cdp);
+        await klickInZeile(stelle, "Browse catalogs", TARGET_PLUGIN_NAME, "Install");
+        const httpModal = await waitForModal(stelle.cdp, "Install");
+        check(
+          "C3 HTTP-Quelle warnt vor unverschluesseltem Transport",
+          httpModal !== null && httpModal.text.includes("plain HTTP"),
+          httpModal ? `Modal: „${httpModal.text.slice(0, 90)}“` : "kein Modal nach Install-Klick",
+        );
+        if (httpModal) await clickModalButton(stelle.cdp, "Install");
 
-      const installModal = await waitForModal(cdp, "Install");
-      const zeigtQuelle = installModal?.text.includes(forge.repoUrl(REPOS.target)) === true;
-      const zeigtId = installModal?.text.includes(`ID: ${TARGET_PLUGIN_ID}`) === true;
-      const zeigtVersion = installModal?.text.includes("Version: 1.0.0") === true;
-      check(
-        "C4 Install-Confirm nennt Quelle, id und Version",
-        installModal !== null && zeigtQuelle && zeigtId && zeigtVersion,
-        installModal
-          ? `Titel: „${installModal.title}“ · Text: „${installModal.text.slice(0, 140)}“`
-          : "kein Install-Confirm",
-      );
+        const installModal = await waitForModal(stelle.cdp, "Install");
+        check(
+          "C4 Install-Confirm nennt Quelle, id und Version",
+          installModal !== null &&
+            installModal.text.includes(forge.repoUrl(REPOS.target)) &&
+            installModal.text.includes(`ID: ${TARGET_PLUGIN_ID}`) &&
+            installModal.text.includes("Version: 1.0.0"),
+          installModal ? `Titel: „${installModal.title}“ · Text: „${installModal.text.slice(0, 120)}“` : "kein Install-Confirm",
+        );
+        await clickModalButton(stelle.cdp, "Cancel");
+        await cdp.evaluate(`await new Promise((r) => setTimeout(r, 600)); return true;`);
+        const nachAbbruch = await fileExists(cdp, `${targetDir(cfg)}/manifest.json`);
+        const settingsNachAbbruch = await readSettings(cdp);
+        check(
+          "C5 „Cancel“ bricht wirklich ab — nichts geschrieben, nichts registriert",
+          !nachAbbruch && settingsNachAbbruch.plugins.length === 0,
+          `manifest.json auf Platte: ${nachAbbruch} · settings.plugins: ${settingsNachAbbruch.plugins.length}`,
+        );
 
-      await clickModalButton(cdp, "Cancel");
-      await cdp.evaluate(`await new Promise((r) => setTimeout(r, 600)); return true;`);
-      const nachAbbruch = await fileExists(cdp, `${targetDir(cfg)}/manifest.json`);
-      const settingsNachAbbruch = await readSettings(cdp);
-      check(
-        "C5 „Cancel“ bricht wirklich ab — nichts geschrieben, nichts registriert",
-        !nachAbbruch && settingsNachAbbruch.plugins.length === 0,
-        `manifest.json auf Platte: ${nachAbbruch} · settings.plugins: ${settingsNachAbbruch.plugins.length}`,
-      );
+        // ── derselbe Weg, diesmal bis zum Ende ────────────────────────────
+        await closeModals(stelle.cdp);
+        await clearNotices(stelle.cdp);
+        await klickInZeile(stelle, "Browse catalogs", TARGET_PLUGIN_NAME, "Install");
+        if (await waitForModal(stelle.cdp, "Install")) await clickModalButton(stelle.cdp, "Install");
+        if (await waitForModal(stelle.cdp, "Install")) await clickModalButton(stelle.cdp, "Install");
+        const noticeText = await waitForNotice(cdp, `Installed ${TARGET_PLUGIN_NAME}`);
+        const manifestRoh = await pollUntil<string>(
+          cdp,
+          `
+            const p = ${JSON.stringify(`${targetDir(cfg)}/manifest.json`)};
+            if (!(await app.vault.adapter.exists(p))) return null;
+            return app.vault.adapter.read(p);
+          `,
+          15_000,
+          300,
+        );
+        const manifest = manifestRoh ? (JSON.parse(manifestRoh) as { id?: string; version?: string }) : null;
+        check(
+          "C6 Install schreibt die Dateien und meldet es",
+          manifest?.id === TARGET_PLUGIN_ID && manifest.version === "1.0.0" && noticeText.includes("Installed"),
+          `manifest: ${manifest ? `${manifest.id}@${manifest.version}` : "fehlt"} · Notice: „${noticeText.slice(0, 70)}“`,
+        );
+        const enableModal = await waitForModal(stelle.cdp, "Enable");
+        if (enableModal) await clickModalButton(stelle.cdp, "Later");
+        const aktiv = await cdp.evaluate<boolean>(
+          `return Boolean(app.plugins.enabledPlugins?.has(${JSON.stringify(TARGET_PLUGIN_ID)}));`,
+        );
+        check(
+          "C7 Enable-Confirm erscheint, „Later“ aktiviert nichts",
+          enableModal !== null && !aktiv,
+          enableModal ? `Knoepfe: ${enableModal.buttons.join("/")} · aktiv danach: ${aktiv}` : "kein Enable-Confirm",
+        );
+        return true;
+      });
 
-      // ── Install-Kette: derselbe Weg, diesmal bis zum Ende ──────────────────
-      await closeModals(cdp);
-      await clearNotices(cdp);
-      await clickReal(cdp, installExpr, 150);
-      if (await waitForModal(cdp, "Install")) await clickModalButton(cdp, "Install");
-      const zweites = await waitForModal(cdp, "Install");
-      if (zweites) await clickModalButton(cdp, "Install");
-      const noticeText = await waitForNotice(cdp, `Installed ${TARGET_PLUGIN_NAME}`);
-      const manifestRoh = await pollUntil<string>(
-        cdp,
-        `
-          const p = ${JSON.stringify(`${targetDir(cfg)}/manifest.json`)};
-          if (!(await app.vault.adapter.exists(p))) return null;
-          return app.vault.adapter.read(p);
-        `,
-        10_000,
-        300,
-      );
-      const manifest = manifestRoh ? (JSON.parse(manifestRoh) as { id?: string; version?: string }) : null;
-      check(
-        "C6 Install schreibt manifest.json/main.js und meldet es",
-        manifest?.id === TARGET_PLUGIN_ID && manifest.version === "1.0.0" && noticeText.includes("Installed"),
-        `manifest: ${manifest ? `${manifest.id}@${manifest.version}` : "fehlt"} · Notice: „${noticeText.slice(0, 80)}“`,
-      );
-      const mainJs = await fileExists(cdp, `${targetDir(cfg)}/main.js`);
-      const stylesCss = await fileExists(cdp, `${targetDir(cfg)}/styles.css`);
-      check("C7 alle drei Code-Dateien liegen im Plugin-Ordner", mainJs && stylesCss && manifest !== null, `main.js: ${mainJs} · styles.css: ${stylesCss}`);
+      // Nach dem Install neu oeffnen: die Sektionen lesen ihren Zustand beim Aufbau.
+      await mitSettings(cdp, verbindung, async (stelle) => {
+        const installed = await sektionBis(stelle, "Installed plugins", (z) => z.some((r) => r.name === TARGET_PLUGIN_ID));
+        const zeile = installed?.find((r) => r.name === TARGET_PLUGIN_ID);
+        check(
+          "C8 Installed-Zeile zeigt Version, Host und Status is-ok",
+          zeile !== undefined && zeile.desc.includes("1.0.0") && zeile.status === "is-ok" && zeile.statusText === "Up to date",
+          zeile ? `„${zeile.desc}“ · Status: ${zeile.status} „${zeile.statusText}“` : `keine Zeile · ${installed?.map((r) => r.name).join(",") ?? "-"}`,
+        );
 
-      // Enable-Confirm: „Later“ darf NICHTS aktivieren. Der Smoke aktiviert bewusst nie
-      // fremden Code — geprüft wird, dass die Wahl auch wirkt.
-      const enableModal = await waitForModal(cdp, "Enable");
-      if (enableModal) await clickModalButton(cdp, "Later");
-      const aktiv = await cdp.evaluate<boolean>(
-        `return Boolean(app.plugins.enabledPlugins?.has(${JSON.stringify(TARGET_PLUGIN_ID)}));`,
-      );
-      check(
-        "C8 Enable-Confirm erscheint, „Later“ aktiviert nichts",
-        enableModal !== null && !aktiv,
-        enableModal ? `Knöpfe: ${enableModal.buttons.join("/")} · aktiv danach: ${aktiv}` : "kein Enable-Confirm",
-      );
+        // ── Update-Pfad ──────────────────────────────────────────────────
+        forge.setVersion("1.1.0");
+        await klickInZeile(stelle, "Installed plugins", TARGET_PLUGIN_ID, "Check");
+        const nachCheck = await sektionBis(
+          stelle,
+          "Installed plugins",
+          (z) => z.some((r) => r.name === TARGET_PLUGIN_ID && r.status === "is-warning"),
+        );
+        const warn = nachCheck?.find((r) => r.name === TARGET_PLUGIN_ID);
+        check(
+          "C9 „Check“ findet 1.1.0 und setzt den Status auf is-warning",
+          warn?.status === "is-warning" && warn.statusText.includes("1.1.0"),
+          warn ? `Status: ${warn.status} „${warn.statusText}“` : "Zeile blieb ohne Warnung",
+        );
 
-      // ── Installed-Panel: Status-Indikator ─────────────────────────────────
-      await reopenStore(cdp);
-      await clickTab(cdp, "installed");
-      const zeile = await pollUntil<{ name: string; version: string; host: string; status: string; label: string } | null>(
-        cdp,
-        inView(`
-          const row = root.querySelector('.okit-hub-panel[data-tab="installed"] .asl-row');
-          if (!row) return null;
-          const st = row.querySelector(".asl-status");
-          return {
-            name: row.querySelector(".asl-row-name")?.textContent?.trim() ?? "",
-            version: row.querySelector(".asl-row-version")?.textContent?.trim() ?? "",
-            host: row.querySelector(".asl-row-host")?.textContent?.trim() ?? "",
-            status: st ? [...st.classList].filter((c) => c.startsWith("is-")).join(",") : "(kein Status)",
-            label: st?.querySelector(".asl-status-label")?.textContent?.trim() ?? "",
-          };
-        `),
-        10_000,
-        300,
-      );
-      check(
-        "C9 Installed-Zeile zeigt Name, Version, Host und Status is-ok",
-        zeile !== null && zeile.name === TARGET_PLUGIN_NAME && zeile.version === "1.0.0" && zeile.status === "is-ok" && zeile.label === "Up to date",
-        zeile ? `${zeile.name} ${zeile.version} @${zeile.host} · Status: ${zeile.status} „${zeile.label}“` : "keine Zeile im Installed-Panel",
-      );
+        const updates = await sektion(stelle, "Updates");
+        const updateZeile = updates?.find((r) => r.name === TARGET_PLUGIN_ID);
+        check(
+          "C10 Updates-Sektion fuehrt das Plugin mit „alt → neu“",
+          updateZeile !== undefined && updateZeile.desc.includes("1.0.0") && updateZeile.desc.includes("1.1.0"),
+          updateZeile ? `„${updateZeile.desc}“ · Knoepfe: ${updateZeile.knoepfe.join(",")}` : `keine Zeile · ${updates?.map((r) => r.name || r.desc.slice(0, 30)).join(" | ") ?? "-"}`,
+        );
 
-      // ── Update-Pfad ───────────────────────────────────────────────────────
-      forge.setVersion("1.1.0");
-      const checkExpr = `(() => {
-        const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
-        const row = leaf?.view?.containerEl?.querySelector('.okit-hub-panel[data-tab="installed"] .asl-row');
-        return [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent.trim() === "Check") ?? null;
-      })()`;
-      await clickReal(cdp, checkExpr, 150);
-      const warnung = await pollUntil<{ status: string; label: string } | null>(
-        cdp,
-        inView(`
-          const st = root.querySelector('.okit-hub-panel[data-tab="installed"] .asl-status');
-          if (!st) return null;
-          const cls = [...st.classList].filter((c) => c.startsWith("is-")).join(",");
-          if (cls !== "is-warning") return null;
-          return { status: cls, label: st.querySelector(".asl-status-label")?.textContent?.trim() ?? "" };
-        `),
-        15_000,
-        300,
-      );
-      check(
-        "C10 „Check“ findet 1.1.0 und setzt den Status auf is-warning",
-        warnung !== null && warnung.label === "Update available: 1.1.0",
-        warnung ? `Status: ${warnung.status} „${warnung.label}“` : "Status blieb nicht auf is-warning",
-      );
+        await closeModals(stelle.cdp);
+        await klickInZeile(stelle, "Updates", TARGET_PLUGIN_ID, "Update");
+        const updateModal = await waitForModal(stelle.cdp, "Update");
+        if (updateModal) await clickModalButton(stelle.cdp, "Update");
+        const neuesManifest = await pollUntil<string>(
+          cdp,
+          `
+            const p = ${JSON.stringify(`${targetDir(cfg)}/manifest.json`)};
+            if (!(await app.vault.adapter.exists(p))) return null;
+            const t = await app.vault.adapter.read(p);
+            return JSON.parse(t).version === "1.1.0" ? t : null;
+          `,
+          20_000,
+          300,
+        );
+        check(
+          "C11 Update-Confirm nennt „1.0.0 → 1.1.0“ und schreibt die neue Version",
+          updateModal !== null && updateModal.title.includes("1.0.0 → 1.1.0") && neuesManifest !== null,
+          updateModal ? `Titel: „${updateModal.title}“ · manifest.json danach: ${neuesManifest ? "1.1.0" : "unveraendert"}` : "kein Update-Confirm",
+        );
+        return true;
+      });
 
-      await clickTab(cdp, "updates");
-      const updateZeile = await pollUntil<string>(
-        cdp,
-        inView(`
-          const row = root.querySelector('.okit-hub-panel[data-tab="updates"] .asl-row');
-          return row?.querySelector(".asl-row-version")?.textContent?.trim() ?? null;
-        `),
-        10_000,
-        300,
-      );
-      check(
-        "C11 Updates-Tab zeigt die Zeile mit „alt → neu“",
-        updateZeile === "1.0.0 → 1.1.0",
-        `Version-Zelle: „${updateZeile ?? "(keine Zeile)"}“`,
-      );
-
-      await closeModals(cdp);
-      await clearNotices(cdp);
-      const updateExpr = `(() => {
-        const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
-        const row = leaf?.view?.containerEl?.querySelector('.okit-hub-panel[data-tab="updates"] .asl-row');
-        return [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent.trim() === "Update") ?? null;
-      })()`;
-      await clickReal(cdp, updateExpr, 150);
-      const updateModal = await waitForModal(cdp, "Update");
-      if (updateModal) await clickModalButton(cdp, "Update");
-      const neuesManifest = await pollUntil<string>(
-        cdp,
-        `
-          const p = ${JSON.stringify(`${targetDir(cfg)}/manifest.json`)};
-          if (!(await app.vault.adapter.exists(p))) return null;
-          const t = await app.vault.adapter.read(p);
-          return JSON.parse(t).version === "1.1.0" ? t : null;
-        `,
-        15_000,
-        300,
-      );
-      check(
-        "C12 Update-Confirm nennt „1.0.0 → 1.1.0“ und schreibt die neue Version",
-        updateModal !== null && updateModal.title.includes("1.0.0 → 1.1.0") && neuesManifest !== null,
-        updateModal
-          ? `Titel: „${updateModal.title}“ · manifest.json danach: ${neuesManifest ? "1.1.0" : "unverändert"}`
-          : "kein Update-Confirm",
-      );
-
-      // ── Remove: destruktives Confirm, data.json überlebt ───────────────────
-      // Der data.json-Vertrag steht in `installer.ts` (`removePlugin`) und ist genau die
-      // Sorte Zusage, die ein Unit-Test bestätigt und die Platte widerlegen kann.
+      // ── Remove: destruktives Confirm, data.json ueberlebt ────────────────
       await cdp.evaluate(`
         await app.vault.adapter.write(${JSON.stringify(`${targetDir(cfg)}/data.json`)}, '{"nutzerdaten":"bleiben"}');
         return true;
       `);
-      await reopenStore(cdp);
-      await clickTab(cdp, "installed");
-      await closeModals(cdp);
-      const removeExpr = `(() => {
-        const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
-        const row = leaf?.view?.containerEl?.querySelector('.okit-hub-panel[data-tab="installed"] .asl-row');
-        return [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent.trim() === "Remove") ?? null;
-      })()`;
-      await clickReal(cdp, removeExpr, 150);
-      const removeModal = await waitForModal(cdp, "Remove");
-      const destruktiv = removeModal?.destructive.includes("Remove") === true;
-      if (removeModal) await clickModalButton(cdp, "Remove");
-      const weg = await pollUntil<boolean>(
-        cdp,
-        `return (await app.vault.adapter.exists(${JSON.stringify(`${targetDir(cfg)}/main.js`)})) ? null : true;`,
-        10_000,
-        300,
-      );
-      const datenBleiben = await fileExists(cdp, `${targetDir(cfg)}/data.json`);
-      check(
-        "C13 Remove: destruktiv markiert, Code weg, data.json bleibt",
-        removeModal !== null && destruktiv && weg === true && datenBleiben,
-        removeModal
-          ? `destruktiv markiert: ${destruktiv} (${removeModal.buttonClasses.join(" | ")}) · ` +
-            `main.js weg: ${weg === true} · data.json da: ${datenBleiben}`
-          : "kein Remove-Confirm",
-      );
+      await mitSettings(cdp, verbindung, async (stelle) => {
+        await closeModals(stelle.cdp);
+        await sektionBis(stelle, "Installed plugins", (z) => z.some((r) => r.name === TARGET_PLUGIN_ID));
+        // Entfernen sitzt als Icon-Knopf in der Zeile (kein <button>) — ueber das Tooltip
+        // greifen, nicht ueber den Text.
+        const geklickt = await clickReal(
+          stelle.cdp,
+          stelle.el(`(() => {
+            const items = [...root.querySelectorAll(".setting-item")];
+            const zeile = items.find((i) => i.querySelector(".setting-item-name")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_ID)});
+            return zeile?.querySelector('[aria-label="Remove"], [aria-label^="Remove"]') ?? null;
+          })()`),
+          150,
+        );
+        const removeModal = await waitForModal(stelle.cdp, "Remove");
+        const destruktiv = removeModal?.destructive.includes("Remove") === true;
+        if (removeModal) await clickModalButton(stelle.cdp, "Remove");
+        const weg = await pollUntil<boolean>(
+          cdp,
+          `return (await app.vault.adapter.exists(${JSON.stringify(`${targetDir(cfg)}/main.js`)})) ? null : true;`,
+          15_000,
+          300,
+        );
+        const datenBleiben = await fileExists(cdp, `${targetDir(cfg)}/data.json`);
+        check(
+          "C12 Remove: destruktiv markiert, Code weg, data.json bleibt",
+          geklickt && removeModal !== null && destruktiv && weg === true && datenBleiben,
+          removeModal
+            ? `Klick: ${geklickt} · destruktiv: ${destruktiv} (${removeModal.buttonClasses.join(" | ")}) · main.js weg: ${weg === true} · data.json da: ${datenBleiben}`
+            : `Klick: ${geklickt} · kein Remove-Confirm`,
+        );
+        return true;
+      });
     },
   },
 
   {
     key: "adoption",
     title: "G — Adoption: installierte Plugins sichtbar machen und uebernehmen",
-    run: async (cdp, forge, cfg) => {
-      // Der Fall, der das Plugin bis 0.1.1 blind machte: im Vault liegt ein Plugin, das
-      // der Katalog kennt — aber `settings.plugins` ist leer, also bot Browse „Install“
-      // an und der Update-Lauf kannte es nicht. Gemessen an zwei produktiven Vaults:
-      // ~20 installiert, 0 verwaltet.
+    run: async (cdp, forge, cfg, verbindung) => {
+      // Der Fall, der das Plugin bis 0.1.1 blind machte: im Vault liegt ein Plugin, das der
+      // Katalog kennt — aber `settings.plugins` ist leer, also bot der Store „Install“ an
+      // und der Update-Lauf kannte es nicht (gemessen an zwei produktiven Vaults: ~20
+      // installiert, 0 verwaltet).
       await removeTargetPlugin(cdp, cfg);
-      await writeSettings(cdp, { catalogs: [forge.catalogUrl], plugins: [] });
-
-      // Installiert, aber NICHT verwaltet: Dateien von Hand hinlegen, Einstellungen leer.
+      await writeSettings(cdp, { catalogs: [forge.catalogUrl], plugins: [], hostSecrets: {} });
+      forge.setVersion("1.0.0");
       await cdp.evaluate(`
         const dir = ${JSON.stringify(targetDir(cfg))};
         const a = app.vault.adapter;
@@ -893,124 +898,94 @@ const SECTIONS: Section[] = [
         await a.write(dir + "/main.js", "// vorhanden");
         return true;
       `);
-      await reopenStore(cdp);
+      // Der Tab muss die Aenderung MITBEKOMMEN: Obsidian cacht `getSettingDefinitions()`,
+      // und die Dateien entstehen hier NACH dem letzten Aufbau. `writeSettings` mit leerem
+      // Patch loest genau das aus (siehe dort) — im echten Ablauf tut das der
+      // „Reload catalogs“-Knopf oder die naechste Bedienung.
+      await writeSettings(cdp, {});
 
-      const karte = await pollUntil<{ text: string; knoepfe: string[]; status: string } | null>(
-        cdp,
-        inView(`
-          const card = [...root.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card')]
-            .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
-          if (!card) return null;
-          const st = card.querySelector(".asl-status");
-          return {
-            text: card.textContent.trim(),
-            knoepfe: [...card.querySelectorAll("button")].map((b) => b.textContent.trim()),
-            status: st ? [...st.classList].filter((c) => c.startsWith("is-")).join(",") : "(kein Status)",
-          };
-        `),
-        15_000,
-        300,
-      );
-      check(
-        "G1 installiertes, nicht verwaltetes Plugin wird als solches erkannt",
-        karte !== null && karte.text.includes("Installed 0.9.0") && karte.knoepfe.some((b) => b.includes("Track")) && !karte.knoepfe.includes("Install"),
-        karte
-          ? `Status: ${karte.status} · Knoepfe: ${karte.knoepfe.join(",")} · Text: „${karte.text.slice(0, 90)}“`
-          : "keine Karte fuer das installierte Plugin",
-      );
+      await mitSettings(cdp, verbindung, async (stelle) => {
+        const browse = await sektionBis(stelle, "Browse catalogs", (z) => z.some((r) => r.name === TARGET_PLUGIN_NAME));
+        const zeile = browse?.find((r) => r.name === TARGET_PLUGIN_NAME);
+        check(
+          "G1 installiertes, nicht verwaltetes Plugin wird als solches erkannt",
+          zeile !== undefined &&
+            zeile.statusText.includes("0.9.0") &&
+            zeile.knoepfe.some((b) => b.includes("Track")) &&
+            !zeile.knoepfe.includes("Install"),
+          zeile ? `Status: ${zeile.status} „${zeile.statusText}“ · Knoepfe: ${zeile.knoepfe.join(",")}` : "keine Zeile",
+        );
 
-      const bulk = await cdp.evaluate<string | null>(
-        inView(`
-          const b = root.querySelector(".asl-bulk button");
-          return b ? b.textContent.trim() : null;
-        `),
-      );
-      check(
-        "G2 „Alle verwalten“ erscheint und nennt die Anzahl",
-        typeof bulk === "string" && /Track all 1 installed/.test(bulk),
-        `Sammelknopf: „${bulk ?? "(keiner)"}“`,
-      );
+        const sammel = browse?.find((r) => r.knoepfe.some((b) => b.startsWith("Track all")));
+        check(
+          "G2 „Alle verwalten“ erscheint und nennt die Anzahl",
+          sammel?.knoepfe.some((b) => /Track all 1 installed/.test(b)) === true,
+          `Sammelknopf: ${sammel?.knoepfe.join(",") ?? "(keiner)"}`,
+        );
 
-      // Uebernahme ueber die ECHTE Bedienung, nicht ueber den Flow.
-      await clickReal(
-        cdp,
-        `(() => {
-          const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
-          const root = leaf?.view?.containerEl;
-          const card = [...(root?.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card') ?? [])]
-            .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
-          return [...(card?.querySelectorAll("button") ?? [])].find((b) => b.textContent.trim().includes("Track")) ?? null;
-        })()`,
-        150,
-      );
-      const verwaltet = await pollUntil<{ id: string; installedVersion: string } | null>(
-        cdp,
-        `
-          const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.plugins[0];
-          return p ? { id: p.id, installedVersion: p.installedVersion } : null;
-        `,
-        15_000,
-        300,
-      );
-      check(
-        "G3 „Verwalten“ traegt es mit der Version VON DER PLATTE ein",
-        verwaltet?.id === TARGET_PLUGIN_ID && verwaltet.installedVersion === "0.9.0",
-        verwaltet ? `${verwaltet.id} @ ${verwaltet.installedVersion}` : "settings.plugins blieb leer",
-      );
+        await klickInZeile(stelle, "Browse catalogs", TARGET_PLUGIN_NAME, "Track for updates");
+        const verwaltet = await pollUntil<{ id: string; installedVersion: string }>(
+          cdp,
+          `
+            const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.plugins[0];
+            return p ? { id: p.id, installedVersion: p.installedVersion } : null;
+          `,
+          15_000,
+          300,
+        );
+        check(
+          "G3 „Verwalten“ traegt es mit der Version VON DER PLATTE ein",
+          verwaltet?.id === TARGET_PLUGIN_ID && verwaltet.installedVersion === "0.9.0",
+          verwaltet ? `${verwaltet.id} @ ${verwaltet.installedVersion}` : "settings.plugins blieb leer",
+        );
+        return true;
+      });
 
       // Jetzt findet der Update-Lauf das Plugin — genau das ging vorher nicht.
       forge.setVersion("1.0.0");
-      await clearNotices(cdp);
-      await clickTab(cdp, "updates");
-      await clickReal(
-        cdp,
-        `(() => {
-          const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
-          const root = leaf?.view?.containerEl;
-          return [...(root?.querySelectorAll('.okit-hub-panel[data-tab="updates"] .asl-bulk button') ?? [])][0] ?? null;
-        })()`,
-        150,
-      );
-      const notice = await waitForNotice(cdp, "update", 25_000);
-      const gefunden = await pollUntil<string>(
-        cdp,
-        `
-          const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.plugins[0];
-          return p && p.availableVersion ? p.availableVersion : null;
-        `,
-        15_000,
-        300,
-      );
-      check(
-        "G4 der Pruef-Knopf im Updates-Tab findet den Rueckstand des uebernommenen Plugins",
-        gefunden === "1.0.0",
-        `availableVersion: ${gefunden ?? "(keine)"} · Notice: „${notice.slice(0, 80)}“`,
-      );
+      await mitSettings(cdp, verbindung, async (stelle) => {
+        // „Check now“ steht VOR der ersten Sektion — `klickInZeile` sucht innerhalb einer
+        // Sektion und findet ihn deshalb nicht. Hier ueber den Knopftext im ganzen Tab.
+        await clickReal(
+          stelle.cdp,
+          stelle.el(`[...root.querySelectorAll("button")].find((b) => b.textContent.trim() === "Check now")`),
+          150,
+        );
+        const gefunden = await pollUntil<string>(
+          cdp,
+          `
+            const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.plugins[0];
+            return p && p.availableVersion ? p.availableVersion : null;
+          `,
+          25_000,
+          400,
+        );
+        const notice = await notices(stelle.cdp);
+        check(
+          "G4 der Pruef-Knopf findet den Rueckstand des uebernommenen Plugins",
+          gefunden === "1.0.0",
+          `availableVersion: ${gefunden ?? "(keine)"} · Notice: „${notice.slice(0, 70)}“`,
+        );
 
-      // Und die Karte im Katalog sagt es jetzt auch.
-      await clickTab(cdp, "browse");
-      const nachCheck = await pollUntil<string>(
-        cdp,
-        inView(`
-          const card = [...root.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card')]
-            .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
-          const label = card?.querySelector(".asl-status-label")?.textContent?.trim();
-          return label || null;
-        `),
-        15_000,
-        300,
-      );
-      check(
-        "G5 die Katalog-Karte zeigt installiert + verfuegbar statt „Install“",
-        nachCheck === "Installed 0.9.0 — 1.0.0 available",
-        `Status-Text: „${nachCheck ?? "(keiner)"}“`,
-      );
+        // Und der Katalog sagt es jetzt auch — Version von der Platte, Rueckstand daneben.
+        const browse = await sektionBis(
+          stelle,
+          "Browse catalogs",
+          (z) => z.some((r) => r.name === TARGET_PLUGIN_NAME && r.statusText.includes("available")),
+        );
+        const zeile = browse?.find((r) => r.name === TARGET_PLUGIN_NAME);
+        check(
+          "G5 die Katalog-Zeile zeigt installiert + verfuegbar statt „Install“",
+          zeile?.statusText === "Installed 0.9.0 — 1.0.0 available",
+          `Status-Text: „${zeile?.statusText ?? "(keiner)"}“`,
+        );
+        return true;
+      });
 
       await removeTargetPlugin(cdp, cfg);
       await writeSettings(cdp, { plugins: [] });
     },
   },
-
   {
     key: "url",
     title: "D — Install per URL (Befehl + Modal) und Sicherheitskanten",

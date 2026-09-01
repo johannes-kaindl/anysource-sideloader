@@ -55,30 +55,22 @@ und ein Namenszusammenstoß wäre ein Löschvorgang am falschen Ort.
 
 ## Prüfpunkte
 
-### A — Store-View und Hub-Tab-Leiste
+### A — Der Store lebt im Einstellungs-Tab
 
 | | Was gemessen wird |
 |---|---|
-| A1 | Der registrierte Befehl „Open store“ öffnet die View (nicht die Methode dahinter) |
-| A2 | Drei Tabs mit den Labels Browse/Installed/Updates, Browse initial aktiv |
-| A3 | Ein **echter Mausklick** auf „Installed“ blendet genau ein Panel ein |
-| A4 | Roving tabindex: genau ein Tab fokussierbar, `aria-selected` passend |
-| A5 | Pfeil rechts wechselt den Tab (ARIA-Vertrag der Kit-Leiste) |
+| A1 | Alle fünf Sektionen sind gezeichnet (Updates · Installed · Browse · Catalogs · Access tokens) |
+| A2 | **Keine selbstgebauten Überschriften** — §5 verlangt `setHeading()` statt `<h3>` |
+| A3–A5 | Die Empty-States sind **sichtbar** und nennen den Ausweg |
 
-A4/A5 messen den Kit-Vertrag aus `hub.ts` (Falle 6 dort): inaktive Tabs sind bewusst nicht
-per Tab-Taste erreichbar. Bricht das, fällt es sonst nirgends auf.
+A2 ist der Wächter für den Befund, der den Umbau ausgelöst hat: die alte Sidebar-Ansicht
+baute Karten mit `<h3>` **ohne Größenregel**, was in Obsidian zu viel zu großer Schrift
+führte. Im Einstellungs-Tab liefert die `Setting`-API die Typografie — ein eigenes Heading
+wäre der Rückweg. Gegenprobe gemessen: ein eingebautes `<h3>` macht **genau A2** rot.
 
-### B — Empty-States (UI-STANDARD §8, verbindlicher Baustein)
-
-| | Was gemessen wird |
-|---|---|
-| B1 | Browse ohne Katalog nennt den Ausweg („Add one in the plugin settings“) |
-| B2 | Installed ohne Plugins zeigt seinen Text |
-| B3 | Updates ohne Rückstand zeigt seinen Text |
-| B4 | Der Empty-State nutzt `.asl-empty` **und hat Fläche** |
-
-Gemessen wird `getClientRects()`, nicht `querySelector`: der Hub versteckt Panels per
-`is-hidden` und lässt sie im DOM — ein Existenz-Test wäre für alle drei gleichzeitig wahr.
+A3–A5 messen **Sichtbarkeit**, nicht Existenz: ein Item mit leerem `name` und nur `desc`
+zeichnet Obsidian nicht (gemessen 2026-09-02) — die Sektion sah leer aus, während die
+Definition korrekt dastand.
 
 ### C — Katalog, Install, Update, Remove
 
@@ -92,7 +84,7 @@ Gemessen wird `getClientRects()`, nicht `querySelector`: der Hub versteckt Panel
 | C6 | Install schreibt `manifest.json` und meldet es per Notice |
 | C7 | Alle drei Code-Dateien liegen im Plugin-Ordner |
 | C8 | Enable-Confirm erscheint, „Later“ aktiviert nichts |
-| C9 | Installed-Zeile zeigt Name/Version/Host und Status `is-ok` „Up to date“ |
+| C8 | Installed-Zeile zeigt Version, Host und Status `is-ok` |
 | C10 | „Check“ findet die neue Version, Status wird `is-warning` |
 | C11 | Updates-Tab zeigt „alt → neu“ |
 | C12 | Update-Confirm nennt beide Versionen und schreibt die neue |
@@ -215,6 +207,7 @@ gelten. Ohne Netz `übersprungen`.
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
+| 2026-09-02 (0.3.0) | 1.13.7 | **39/39** — Hub aufgelöst, A/C/G messen jetzt im Einstellungs-Tab | Gegenprobe: ein eigenes `<h3>` eingebaut → **genau A2** rot, sonst keiner |
 | 2026-09-01 (0.2.1) | 1.13.7 | **44/44** — E7 neu | Gegenprobe: alter Knopf-Code zurück → **E7 rot**, sonst keiner; die erste Fassung von E7 blieb dabei grün und musste korrigiert werden |
 | 2026-09-01 (0.2.0) | 1.13.7 | **43/43** — Abschnitt G neu | Gegenprobe: Platte-Blick ausgebaut → **G1–G5 rot (0/5)**, Abschnitt C unverändert 13/13; Vorhersage traf exakt |
 | 2026-09-01 (nach dem Settings-Fix) | 1.13.7 | **38/38** — E2/E3 grün, E4/E5 laufen jetzt statt übersprungen zu werden | Fix belegt: derselbe Treiber war vorher rot, und die A/B-Messung zeigt die Ursache | bestanden: Overwrite-Guard (`src/obsidian/flows.ts:121`) ausgebaut → **genau D3** rot, sonst keiner mitgefallen |
@@ -273,3 +266,28 @@ Defekte hat, misst wahrscheinlich das Werkzeug etwas anderes, als es behauptet.*
   getroffen“, obwohl das Element sichtbar 44×20 px groß dastand. Klammern um den Ausdruck
   beheben es. Gefunden nur, weil der Prüfpunkt seine drei Stufen getrennt meldet (Klick
   getroffen / Speicher / Platte) statt nur „rot“.
+
+
+## Was der Umbau auf den Einstellungs-Tab gelehrt hat (2026-09-02)
+
+Der Umbau war die Antwort auf Johannes' Einwand, dass hier UI neu gebaut wurde, die es
+längst gibt — mit sichtbarer Folge (zu große Schrift). Beim Umstellen des Treibers fielen
+vier Dinge an, die über dieses Repo hinaus gelten:
+
+- **Modals erscheinen dort, wo geklickt wurde.** Ein Confirm, das aus dem
+  Einstellungs-**Fenster** ausgelöst wird, steht in dessen DOM — `waitForModal` gegen den
+  Workspace-Renderer findet nichts und meldet „kein Modal". Elf Prüfpunkte waren deshalb
+  rot, ohne dass am Prüfling etwas fehlte. Die Modal-Helfer nehmen deshalb das Handle der
+  Stelle, an der geklickt wurde.
+- **Obsidian cacht `getSettingDefinitions()`.** Wer die Einstellungen von außen ändert (ein
+  Treiber tut das immer), sieht danach den alten Stand — bei leerer Abo-Liste standen noch
+  22 Katalog-Einträge da. `writeSettings` stößt jetzt selbst ein `update()` an. ⚠️ Das ist
+  ein **Messartefakt**: im echten Ablauf ändert der Nutzer die Einstellungen *durch* die UI,
+  und die ruft ihr `refresh()` selbst.
+- **Zwei echte Produktfehler fand erst dieser Umbau** — beide hätte die alte View genauso
+  gehabt: der Katalog-Cache überlebte eine Änderung der Abos, und der Platten-Zustand wurde
+  nur beim Katalog-Laden gelesen (wer außerhalb installiert, sah weiter „Install"). Dazu
+  kam, dass „Check now" die offene Liste nicht aktualisierte — man drückte, bekam eine
+  Notice und sah nichts.
+- **`esbuild --bundle` prüft keine Typen.** Ein Lauf war grün, während `tsc` einen Fehler in
+  derselben Datei meldete. Der Typecheck gehört vor den Lauf, nicht danach.

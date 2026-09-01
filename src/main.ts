@@ -1,10 +1,9 @@
-import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin } from "obsidian";
 import { DEFAULT_SETTINGS, loadSettings, type SideloaderSettings } from "./core/settings";
 import { obsidianSecretStore, MemorySecretStore, type SecretStore } from "./obsidian/secrets";
 import { SideloaderSettingTab } from "./obsidian/settings-tab";
 import { obsidianHttp } from "./obsidian/http";
 import { checkAllUpdates, checkUpdatesWithNotices, installFromUrl, type FlowContext } from "./obsidian/flows";
-import { StoreView, VIEW_TYPE_SIDELOADER } from "./obsidian/store-view";
 import { InstallUrlModal } from "./obsidian/install-url-modal";
 import { STRINGS } from "./i18n/strings";
 import type { HttpPort } from "./core/forge/types";
@@ -13,6 +12,8 @@ export default class AnySourceSideloaderPlugin extends Plugin {
   settings: SideloaderSettings = DEFAULT_SETTINGS;
   secretStore: SecretStore = new MemorySecretStore();
   private http: HttpPort = obsidianHttp();
+  /** Referenz, um den Tab nach Ablaeufen ausserhalb der UI neu zeichnen zu lassen. */
+  private settingsTab: SideloaderSettingTab | null = null;
 
   async onload(): Promise<void> {
     this.settings = loadSettings(await this.loadData());
@@ -20,18 +21,21 @@ export default class AnySourceSideloaderPlugin extends Plugin {
     const hasKeychain = typeof (this.app as { secretStorage?: { getSecret?: unknown } }).secretStorage?.getSecret === "function";
     this.secretStore = hasKeychain ? obsidianSecretStore(this.app) : new MemorySecretStore();
     this.http = obsidianHttp();
-    this.addSettingTab(new SideloaderSettingTab(this.app, this));   // Task 12
+    this.settingsTab = new SideloaderSettingTab(this.app, this);
+    this.addSettingTab(this.settingsTab);
 
-    this.registerView(VIEW_TYPE_SIDELOADER, (leaf) => new StoreView(leaf, this.flowContext()));
-    this.addRibbonIcon("download", STRINGS.view.ribbonTooltip, () => { void this.activateView(); });
+    // Kein eigener View mehr: Installation und Updates leben im Einstellungs-Tab — dem
+    // Ort, an dem Obsidian Plugins ohnehin verwaltet. Das spart nicht nur eine Ansicht,
+    // sondern das gesamte Karten-/Zeilen-CSS, das sie gebraucht hat (UI-STANDARD §5:
+    // Sektionen ueber `setHeading()`, Zeilen ueber `Setting` — Typografie kommt vom Host).
     this.addCommand({
       id: "open-store",
-      name: STRINGS.view.openStoreCommand,
-      callback: () => { void this.activateView(); },
+      name: STRINGS.store.openStoreCommand,
+      callback: () => { this.openSettings(); },
     });
     this.addCommand({
       id: "check-updates",
-      name: STRINGS.view.checkUpdatesCommand,
+      name: STRINGS.store.checkUpdatesCommand,
       callback: () => { void this.runCheckUpdatesCommand(); },
     });
     // Task C1: "Install from URL" war dokumentiert, hatte aber keine Bedienung — ein
@@ -71,23 +75,27 @@ export default class AnySourceSideloaderPlugin extends Plugin {
     };
   }
 
-  private async activateView(): Promise<void> {
-    const { workspace } = this.app;
-    const existing = workspace.getLeavesOfType(VIEW_TYPE_SIDELOADER);
-    let leaf: WorkspaceLeaf | null = existing[0] ?? null;
-    if (leaf === null) {
-      leaf = workspace.getRightLeaf(false);
-      if (leaf !== null) await leaf.setViewState({ type: VIEW_TYPE_SIDELOADER, active: true });
-    }
-    if (leaf !== null) void workspace.revealLeaf(leaf);
+  /** Den eigenen Einstellungs-Tab oeffnen. `app.setting` ist wie `app.plugins` nicht in
+   *  `obsidian.d.ts` deklariert — schmales lokales Interface plus Form-Pruefung statt `any`. */
+  private openSettings(): void {
+    const setting = (this.app as unknown as {
+      setting?: { open?: () => void; openTabById?: (id: string) => void };
+    }).setting;
+    if (typeof setting?.open !== "function" || typeof setting.openTabById !== "function") return;
+    setting.open();
+    setting.openTabById(this.manifest.id);
   }
 
   private async runCheckUpdatesCommand(): Promise<void> {
     await checkUpdatesWithNotices(this.flowContext());
+    // Der Befehl laeuft ausserhalb des Tabs; ohne diesen Anstoss zeigt ein offener Tab
+    // weiter den Stand von vor der Pruefung.
+    this.settingsTab?.aktualisieren();
   }
 
   private async runStartupCheck(): Promise<void> {
     const { results } = await checkAllUpdates(this.flowContext());
+    this.settingsTab?.aktualisieren();
     if (results.length > 0) new Notice(STRINGS.notices.updatesAvailable(results.length), 10000);
     // n === 0: bewusst still, keine Notice bei jedem Start (Brief: "n > 0 ? Notice : stumm").
   }

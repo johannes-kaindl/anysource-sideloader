@@ -1,95 +1,10 @@
-/* vendored from obsidian-kit@0.28.0, src/obsidian/hub.ts (HUB_CSS) — kit contract:
-   consumers copy this block verbatim into their own styles.css, the kit injects no CSS
-   itself. Do not hand-edit; re-sync via tools/sync-kit.sh. */
-.okit-hub-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.okit-hub-tabs {
-  display: flex;
-  flex-wrap: wrap;                 /* (1) erlaubt die zweite Zeile */
-  gap: var(--size-2-1);
-  flex: 0 0 auto;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-.okit-hub-tab {
-  display: flex;
-  flex: 1 1 auto;                  /* (2) Basis = Inhaltsbreite, sonst bricht nichts um */
-  min-width: 0;                    /* (3) hebt min-width:auto auf, sonst sprengt ein langes Label die Zeile */
-  align-items: center;
-  justify-content: center;
-  gap: var(--size-4-1);
-  padding: var(--size-2-3) var(--size-4-2);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.okit-hub-tab-label {              /* (4) ohne eigenes Label-Element kann nichts ellipsieren */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.okit-hub-tab-icon { display: inline-flex; flex: 0 0 auto; }
-.okit-hub-tab:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
-.okit-hub-tab.is-active { color: var(--text-normal); border-bottom-color: var(--interactive-accent); }
-.okit-hub-content { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
-.okit-hub-panel { height: 100%; overflow: auto; }
-.okit-hub-panel.is-hidden { display: none; }
-
 /* ---------------------------------------------------------------------------
-   AnySource Sideloader — eigene Klassen, Praefix asl-, nur Theme-Variablen.
+   AnySource Sideloader — eigenes CSS, Praefix asl-, nur Theme-Variablen.
+
+   Seit 0.3.0 sehr wenig: Installation und Updates leben im Einstellungs-Tab, und dort
+   liefert Obsidians `Setting`-API Layout und Typografie. Was hier steht, ist der
+   Status-Indikator aus UI-STANDARD §8 — der hat kein natives Gegenstueck.
 --------------------------------------------------------------------------- */
-
-.asl-browse, .asl-installed, .asl-updates { padding: var(--size-4-2); }
-
-/* Empty-State (UI-STANDARD §8, verbindlich): kurze Zeile, gedaempfte Farbe. */
-.asl-empty {
-  padding: var(--size-4-4);
-  color: var(--text-muted);
-  text-align: center;
-}
-
-/* Suchfeld ueber der Katalogliste. */
-.asl-search { margin-bottom: var(--size-4-2); }
-.asl-search-input { width: 100%; }
-
-/* Info-Karte (§8 Blaupause): background-secondary + Border + Radius. */
-.asl-catalog-list { display: flex; flex-direction: column; gap: var(--size-4-2); }
-.asl-card {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  padding: var(--size-4-3);
-}
-.asl-card-title { margin: 0 0 var(--size-2-1) 0; }
-.asl-card-desc { color: var(--text-muted); margin-bottom: var(--size-2-2); }
-.asl-card-tags { display: flex; flex-wrap: wrap; gap: var(--size-2-1); margin-bottom: var(--size-2-2); }
-.asl-tag {
-  background: var(--background-modifier-hover);
-  border-radius: var(--radius-s);
-  padding: 0 var(--size-2-2);
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
-}
-.asl-card-author { color: var(--text-faint); font-size: var(--font-ui-smaller); margin-bottom: var(--size-2-2); }
-.asl-card-actions { display: flex; align-items: center; gap: var(--size-4-2); }
-.asl-installed-version { color: var(--text-muted); }
-
-/* Listen-Zeile (§8, horizontale Grammatik): Label/Wert-Felder + Statusindikator +
-   Aktionen, alle in einer flex-Zeile mit gap statt Margin-Stacking. */
-.asl-list { display: flex; flex-direction: column; gap: var(--size-2-2); }
-.asl-row {
-  display: flex;
-  align-items: center;
-  gap: var(--size-4-2);
-  padding: var(--size-2-3) var(--size-4-2);
-  border-bottom: 1px solid var(--background-modifier-border);
-  flex-wrap: wrap;
-}
-.asl-row-name { font-weight: var(--font-medium); flex: 1 1 auto; min-width: 8em; }
-.asl-row-version, .asl-row-host { color: var(--text-muted); }
-.asl-row-actions { display: flex; gap: var(--size-2-2); margin-left: auto; }
 
 /* Status-Indikator (§8, verbindlich): Form UND Farbe UND State-Klasse UND aria-label. */
 .asl-status { display: inline-flex; align-items: center; gap: var(--size-2-1); }
@@ -101,5 +16,7 @@
 
 .asl-release-notes-empty { color: var(--text-muted); }
 
-/* Sammelaktionen ueber der Liste (Alle verwalten, Auf Updates pruefen) */
-.asl-bulk { display: flex; justify-content: flex-end; margin-bottom: var(--size-4-2); }
+/* Empty-State / Hinweiszeile (UI-STANDARD §8, verbindlich). In den Einstellungen ist das
+   eine Setting-Zeile ohne Namen — ohne diese Regel bliebe sie unsichtbar. */
+.setting-item.asl-empty { border-top: none; padding-top: 0; }
+.setting-item.asl-empty .setting-item-description { color: var(--text-muted); }

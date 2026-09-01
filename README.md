@@ -22,6 +22,8 @@ from there directly, independent of whether the Community Store lists it at all.
   forge type is detected from a pasted repo URL; nothing needs to be configured per source.
 - **Subscribable catalogs** — a catalog is one JSON file listing plugins. Versions always
   come live from each plugin's own forge, never from the catalog.
+- **Everything lives in the settings tab**, where Obsidian manages plugins anyway — no extra
+  sidebar view to open, and the layout is Obsidian's own.
 - **Tracks plugins you already have.** Installed but unmanaged plugins are recognised and
   can be adopted with one click, or all at once — no reinstall, no version loss.
 - **Checksum verification** of every downloaded release asset before anything is written.
@@ -89,7 +91,7 @@ Catalog format:
 
 ### Already have plugins installed?
 
-The Browse tab reads what is actually in your vault, not just what it installed itself. A
+The **Browse catalogs** section in the plugin's settings reads what is actually in your vault, not just what it installed itself. A
 catalog entry whose plugin is already present shows **Track for updates** instead of
 Install — one click, no reinstall, and it keeps whatever version you have. Above the list,
 **Track all N installed** does the whole set at once.
@@ -98,9 +100,9 @@ This matters because update checks only cover *tracked* plugins. If nothing is t
 check has nothing to look at — and it will say so rather than report that everything is up
 to date.
 
-Checking is manual by default: the **Check for updates** button sits in the Updates tab and
-in the settings, and the same action is available from the command palette (so you can bind
-a hotkey). With "Check for updates on startup" enabled, it also runs once shortly after
+Checking is manual by default: the **Check now** button sits at the top of the plugin's
+settings, and the same action is available from the command palette (so you can bind a
+hotkey). With "Check for updates on startup" enabled, it also runs once shortly after
 Obsidian starts. Updates are never installed without your confirmation.
 
 ## Configuration
