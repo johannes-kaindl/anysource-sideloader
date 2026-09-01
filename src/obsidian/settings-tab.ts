@@ -103,7 +103,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
     }
 
     this.katalog = { stand: "da", eintraege, fehler: fehler.join("; "), schluessel };
-    await this.ladeInstallierte();
+    await this.ladeInstallierte().catch(() => undefined);
     this.refresh();
   }
 
@@ -121,6 +121,12 @@ export class SideloaderSettingTab extends PluginSettingTab {
    * ⚠️ `refresh()` nur bei ECHTER Aenderung — sonst loest der Aufbau einen Aufbau aus.
    */
   private async ladeInstallierte(): Promise<void> {
+    // Defensiv: das Zeichnen der Einstellungen darf an einem Datei-Lesefehler nicht
+    // scheitern. Ohne den Guard warf der Aufruf in einer Umgebung ohne `app.vault` (im
+    // Unit-Test, aber auch denkbar waehrend des Ladens) eine unbehandelte Rejection —
+    // sichtbar wurde das erst, als der Aufruf in `getSettingDefinitions()` wanderte.
+    const vault = (this.app as { vault?: unknown } | undefined)?.vault;
+    if (!vault) return;
     const port = adapterFilePort(this.app);
     const ids = new Set([
       ...this.katalog.eintraege.map((e) => e.id),
@@ -202,7 +208,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
     // `rebuild()`, weil das nur den Fallback-Pfad (<1.13) trifft; `getSettingDefinitions()`
     // ist der gemeinsame Punkt beider Renderpfade. Async, und `ladeInstallierte` loest nur
     // bei ECHTER Aenderung ein `refresh()` aus — sonst baute der Aufbau sich selbst neu.
-    void this.ladeInstallierte();
+    void this.ladeInstallierte().catch(() => undefined);
     return [
       {
         name: STRINGS.settings.checkOnStartup.name,
