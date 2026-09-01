@@ -18,9 +18,15 @@ export interface SideloaderSettings {
   checkOnStartup: boolean; // Default true
 }
 
+/** Vorabonnierter Katalog des Plugin-Autors — in den Settings jederzeit entfernbar.
+ *  Ein leerer Browse-Tab beim ersten Start waere ein Empty-State ohne Ausweg fuer
+ *  genau die Nutzer, fuer die dieses Plugin gebaut ist. */
+export const DEFAULT_CATALOG_URL =
+  "https://git.jkaindl.de/jkaindl/obsidian-plugin-catalog/raw/branch/main/catalog.json";
+
 export const DEFAULT_SETTINGS: SideloaderSettings = {
   plugins: [],
-  catalogs: [],
+  catalogs: [DEFAULT_CATALOG_URL],
   hostSecrets: {},
   checkOnStartup: true,
 };
