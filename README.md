@@ -16,7 +16,28 @@ Sideloader removes that single point of failure by letting a plugin's release li
 *any* forge (GitHub, Forgejo, Gitea, or even a plain HTTP(S) URL) and installing/updating
 from there directly, independent of whether the Community Store lists it at all.
 
-## Install (bootstrap)
+## Features
+
+- **Any git forge as a source** — GitHub, Forgejo, Gitea, or a plain raw-file URL. The
+  forge type is detected from a pasted repo URL; nothing needs to be configured per source.
+- **Subscribable catalogs** — a catalog is one JSON file listing plugins. Versions always
+  come live from each plugin's own forge, never from the catalog.
+- **Tracks plugins you already have.** Installed but unmanaged plugins are recognised and
+  can be adopted with one click, or all at once — no reinstall, no version loss.
+- **Checksum verification** of every downloaded release asset before anything is written.
+- **Private repositories** via per-host access tokens kept in Obsidian's keychain.
+- **Nothing happens without confirmation** — every install and update is a deliberate,
+  visible action, and updates are never applied automatically.
+
+## Requirements
+
+- Obsidian **1.11.4** or newer (the version that introduced the keychain API used for
+  access tokens).
+- Works on **desktop and mobile**; no Node, no runtime dependencies, no external binaries.
+- A network connection to whichever forge hosts the plugins you install. Nothing is sent
+  anywhere else.
+
+## Install
 
 Because this plugin's whole purpose is working without the Community Store, its own
 first install is manual:
@@ -29,7 +50,9 @@ first install is manual:
 From then on, the plugin can update **itself** the same way it updates any other
 sideloaded plugin — no manual copying needed after the bootstrap.
 
-## Adding sources
+## Usage
+
+### Adding sources
 
 Add a source by pasting a repo URL (e.g. `https://github.com/user/repo`,
 `https://git.jkaindl.de/jkaindl/some-plugin`, or a Gitea instance URL). The forge is
@@ -41,7 +64,7 @@ still takes a **repo URL** (not a direct asset URL), and derives
 `styles.css` — there is no branch or tag selection yet, so this fallback only works
 against the repo's default branch, and only if it is named `main`.
 
-## Catalogs
+### Catalogs
 
 A catalog is a small JSON file that lists multiple plugins at once — useful for
 publishing "these are the plugins I maintain" or "these are the plugins approved for
@@ -56,7 +79,9 @@ Catalog format:
     "repo": "https://git.jkaindl.de/jkaindl/vault-rag", "author": "Johannes Kaindl", "tags": ["ai"] }] }
 ```
 
-## Tokens
+## Configuration
+
+### Access tokens
 
 Private repos and private catalogs need authentication. Tokens are stored per forge
 host in Obsidian's own keychain (via the built-in `SecretComponent` in the settings
@@ -65,7 +90,7 @@ organisation use case work: an org can host a private Forgejo/Gitea instance wit
 internal plugins and catalogs, and members authenticate with a token scoped to that
 host.
 
-## Updates
+### Updates
 
 - A startup check (toggle in settings) looks for new releases across all configured
   sources and shows a notice when updates are available.
@@ -73,7 +98,7 @@ host.
 - Before applying, the plugin shows the release notes from the new version so you know
   what you're installing.
 
-## Security
+## How it works
 
 - When a release carries a `checksums.sha256` file, the downloaded asset is verified
   against it before installation; a mismatch blocks the install.
@@ -83,7 +108,7 @@ host.
 
 No screenshots yet — a follow-up pass will add them via the `readme-shots` workflow.
 
-## Already have plugins installed?
+### Already have plugins installed?
 
 The Browse tab reads what is actually in your vault, not just what it installed itself. A
 catalog entry whose plugin is already present shows **Track for updates** instead of
