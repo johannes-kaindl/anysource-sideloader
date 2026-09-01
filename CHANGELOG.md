@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-09-01
+
 ### Added
 
 - GUI smoke driver (`npm run smoke:gui`) that runs the checklist in `docs/SMOKE.md`
