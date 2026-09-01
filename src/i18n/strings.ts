@@ -21,6 +21,11 @@ export const STRINGS = {
     tokenAdd: "Add host",
     tokenRemove: "Remove this host (the keychain entry itself is kept by Obsidian)",
     tokenFallbackPlaceholder: "Token (kept for this session only, no keychain available)",
+    checkUpdates: {
+      name: "Check for updates now",
+      desc: "Compares every tracked plugin against the newest release of its source. Only plugins you track are checked — track them in the Browse tab.",
+    },
+    checkUpdatesButton: "Check now",
   },
   notices: {
     updatesAvailable: (n: number) => `${n} plugin update${n === 1 ? "" : "s"} available — open AnySource Sideloader`,
@@ -30,6 +35,12 @@ export const STRINGS = {
     checksumMismatch: "Checksum mismatch — installation aborted.",
     invalidSource: "Could not detect a supported source (GitHub, Forgejo/Gitea, or a raw file URL) from this address.",
     checkFailed: (id: string, message: string) => `Update check for "${id}" failed: ${message}`,
+    adopted: (name: string, v: string) => `Now tracking ${name} ${v} for updates.`,
+    adoptedAll: (n: number) => `Now tracking ${n} installed plugin${n === 1 ? "" : "s"} for updates.`,
+    adoptFailed: (name: string, message: string) => `Could not track ${name}: ${message}`,
+    nothingToAdopt: "No installed plugins from this catalog are untracked.",
+    checking: "Checking for updates…",
+    nothingTracked: "No plugins are tracked yet — open AnySource Sideloader and track the installed ones in the Browse tab.",
   },
   confirm: {
     installTitle: (name: string) => `Install ${name}?`,
@@ -80,5 +91,11 @@ export const STRINGS = {
     checkFailedStatus: (message: string) => `Check failed: ${message}`,
     update: "Update",
     noUpdates: "Everything up to date.",
+    checkAll: "Check for updates",
+    manage: "Track for updates",
+    manageAll: (n: number) => `Track all ${n} installed`,
+    installedUnmanaged: (v: string) => `Installed ${v} — not tracked`,
+    installedCurrent: (v: string) => `Installed ${v}`,
+    installedOutdated: (from: string, to: string) => `Installed ${from} — ${to} available`,
   },
 } as const;

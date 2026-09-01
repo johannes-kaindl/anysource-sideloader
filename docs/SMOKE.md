@@ -143,6 +143,21 @@ Schlüsselbund des Rechners, und ein Messwerkzeug, das dort etwas hinterlässt, 
 Wirt. Gemessen wird die UI-Seite (kein Klartext, richtiger Zustand) und in F2 der
 injizierte Port.
 
+### G — Adoption: installierte Plugins sichtbar machen und übernehmen
+
+| | Was gemessen wird |
+|---|---|
+| G1 | Ein installiertes, **nicht verwaltetes** Plugin wird als solches erkannt (nicht als „Install") |
+| G2 | „Alle verwalten" erscheint und nennt die Anzahl |
+| G3 | „Verwalten" trägt es mit der Version **von der Platte** ein |
+| G4 | Der Prüf-Knopf im Updates-Tab findet danach den Rückstand |
+| G5 | Die Katalog-Karte zeigt „installiert + verfügbar" statt „Install" |
+
+Der Abschnitt bildet den Fall nach, der das Plugin bis 0.1.1 blind machte: im Vault liegt
+ein Plugin, das der Katalog kennt, aber `settings.plugins` ist leer. Gemessen an zwei
+produktiven Vaults: ~20 installiert, **0** verwaltet — der Update-Lauf lief über eine leere
+Liste und meldete nie einen Rückstand, weil er keinen kannte.
+
 ### F — Transport (die zwei Pflicht-Messpunkte)
 
 | | Was gemessen wird |
@@ -191,7 +206,8 @@ gelten. Ohne Netz `übersprungen`.
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
-| 2026-09-01 (nach dem Fix) | 1.13.7 | **38/38** — E2/E3 grün, E4/E5 laufen jetzt statt übersprungen zu werden | Fix belegt: derselbe Treiber war vorher rot, und die A/B-Messung zeigt die Ursache | bestanden: Overwrite-Guard (`src/obsidian/flows.ts:121`) ausgebaut → **genau D3** rot, sonst keiner mitgefallen |
+| 2026-09-01 (0.2.0) | 1.13.7 | **43/43** — Abschnitt G neu | Gegenprobe: Platte-Blick ausgebaut → **G1–G5 rot (0/5)**, Abschnitt C unverändert 13/13; Vorhersage traf exakt |
+| 2026-09-01 (nach dem Settings-Fix) | 1.13.7 | **38/38** — E2/E3 grün, E4/E5 laufen jetzt statt übersprungen zu werden | Fix belegt: derselbe Treiber war vorher rot, und die A/B-Messung zeigt die Ursache | bestanden: Overwrite-Guard (`src/obsidian/flows.ts:121`) ausgebaut → **genau D3** rot, sonst keiner mitgefallen |
 
 Die Gegenprobe traf eine vorher aufgeschriebene Vorhersage: D3 rot, D4 **grün**, weil D4 nur
 den Abbruch misst und „Cancel“ auch am Install-Confirm abbricht. Der rote Punkt nannte, was

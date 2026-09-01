@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS, loadSettings, type SideloaderSettings } from "./core/
 import { obsidianSecretStore, MemorySecretStore, type SecretStore } from "./obsidian/secrets";
 import { SideloaderSettingTab } from "./obsidian/settings-tab";
 import { obsidianHttp } from "./obsidian/http";
-import { checkAllUpdates, installFromUrl, type FlowContext } from "./obsidian/flows";
+import { checkAllUpdates, checkUpdatesWithNotices, installFromUrl, type FlowContext } from "./obsidian/flows";
 import { StoreView, VIEW_TYPE_SIDELOADER } from "./obsidian/store-view";
 import { InstallUrlModal } from "./obsidian/install-url-modal";
 import { STRINGS } from "./i18n/strings";
@@ -59,7 +59,9 @@ export default class AnySourceSideloaderPlugin extends Plugin {
 
   async saveSettings(): Promise<void> { await this.saveData(this.settings); }
 
-  private flowContext(): FlowContext {
+  /** Oeffentlich, weil auch der Settings-Tab Ablaeufe ausloest (Update-Pruefung) —
+   *  gebaut wird der Kontext weiterhin nur hier. */
+  flowContext(): FlowContext {
     return {
       app: this.app,
       http: this.http,
@@ -81,10 +83,7 @@ export default class AnySourceSideloaderPlugin extends Plugin {
   }
 
   private async runCheckUpdatesCommand(): Promise<void> {
-    const { results, errors } = await checkAllUpdates(this.flowContext());
-    if (results.length > 0) new Notice(STRINGS.notices.updatesAvailable(results.length));
-    else new Notice(STRINGS.notices.upToDate);
-    for (const err of errors) new Notice(STRINGS.notices.checkFailed(err.id, err.message));
+    await checkUpdatesWithNotices(this.flowContext());
   }
 
   private async runStartupCheck(): Promise<void> {

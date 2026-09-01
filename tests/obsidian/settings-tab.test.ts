@@ -68,12 +68,28 @@ describe("getSettingDefinitions — Struktur", () => {
     expect(g.map((x) => x.heading)).toEqual(["Catalogs", "Access tokens"]);
   });
 
-  it("KEINE Top-Level-Definition zeichnet eine Liste über eine render-Hatch", () => {
-    // Der Rückweg in den Defekt: eine `render`-Hatch neben (statt in) einer Gruppe.
-    // Der Toggle bleibt erlaubt — er ist `control`, keine Hatch.
+  it("die LISTEN-Einstellungen sind keine render-Hatch", () => {
+    // Der Rückweg in den Defekt, genau benannt: „Catalogs"/„Access tokens" wieder als
+    // einzelne Hatch, die mehrere Zeilen baut.
+    //
+    // Eine Top-Level-Hatch als solche ist NICHT verboten — der „Check for updates
+    // now"-Knopf ist eine und völlig in Ordnung, weil sie genau ihre eigene Zeile
+    // befüllt. Der frühere Test verbot jede Hatch und wäre an diesem Knopf zerbrochen,
+    // ohne dass etwas kaputt war: er maß die Bauform statt der Zusicherung.
     const oberste = tabFor({ catalogs: ["a", "b"] }).getSettingDefinitions();
-    const mitHatch = oberste.filter((d) => typeof (d as { render?: unknown }).render === "function");
-    expect(mitHatch).toHaveLength(0);
+    const listenAlsHatch = oberste.filter(
+      (d) =>
+        typeof (d as { render?: unknown }).render === "function" &&
+        ["Catalogs", "Access tokens"].includes(String((d as { name?: unknown }).name ?? "")),
+    );
+    expect(listenAlsHatch).toHaveLength(0);
+  });
+
+  it("die Zeile mit dem Prüf-Knopf ist eine Einzelzeilen-Hatch und bleibt erlaubt", () => {
+    const knopf = tabFor()
+      .getSettingDefinitions()
+      .find((d) => String((d as { name?: unknown }).name ?? "").startsWith("Check for updates now"));
+    expect(typeof (knopf as { render?: unknown } | undefined)?.render).toBe("function");
   });
 
   it("jeder Katalog bekommt eine eigene Zeile — plus Beschreibung und Add-Zeile", () => {

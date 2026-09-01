@@ -872,6 +872,146 @@ const SECTIONS: Section[] = [
   },
 
   {
+    key: "adoption",
+    title: "G — Adoption: installierte Plugins sichtbar machen und uebernehmen",
+    run: async (cdp, forge, cfg) => {
+      // Der Fall, der das Plugin bis 0.1.1 blind machte: im Vault liegt ein Plugin, das
+      // der Katalog kennt — aber `settings.plugins` ist leer, also bot Browse „Install“
+      // an und der Update-Lauf kannte es nicht. Gemessen an zwei produktiven Vaults:
+      // ~20 installiert, 0 verwaltet.
+      await removeTargetPlugin(cdp, cfg);
+      await writeSettings(cdp, { catalogs: [forge.catalogUrl], plugins: [] });
+
+      // Installiert, aber NICHT verwaltet: Dateien von Hand hinlegen, Einstellungen leer.
+      await cdp.evaluate(`
+        const dir = ${JSON.stringify(targetDir(cfg))};
+        const a = app.vault.adapter;
+        await a.mkdir(dir);
+        await a.write(dir + "/manifest.json", ${JSON.stringify(
+          JSON.stringify({ id: TARGET_PLUGIN_ID, name: TARGET_PLUGIN_NAME, version: "0.9.0" }),
+        )});
+        await a.write(dir + "/main.js", "// vorhanden");
+        return true;
+      `);
+      await reopenStore(cdp);
+
+      const karte = await pollUntil<{ text: string; knoepfe: string[]; status: string } | null>(
+        cdp,
+        inView(`
+          const card = [...root.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card')]
+            .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
+          if (!card) return null;
+          const st = card.querySelector(".asl-status");
+          return {
+            text: card.textContent.trim(),
+            knoepfe: [...card.querySelectorAll("button")].map((b) => b.textContent.trim()),
+            status: st ? [...st.classList].filter((c) => c.startsWith("is-")).join(",") : "(kein Status)",
+          };
+        `),
+        15_000,
+        300,
+      );
+      check(
+        "G1 installiertes, nicht verwaltetes Plugin wird als solches erkannt",
+        karte !== null && karte.text.includes("Installed 0.9.0") && karte.knoepfe.some((b) => b.includes("Track")) && !karte.knoepfe.includes("Install"),
+        karte
+          ? `Status: ${karte.status} · Knoepfe: ${karte.knoepfe.join(",")} · Text: „${karte.text.slice(0, 90)}“`
+          : "keine Karte fuer das installierte Plugin",
+      );
+
+      const bulk = await cdp.evaluate<string | null>(
+        inView(`
+          const b = root.querySelector(".asl-bulk button");
+          return b ? b.textContent.trim() : null;
+        `),
+      );
+      check(
+        "G2 „Alle verwalten“ erscheint und nennt die Anzahl",
+        typeof bulk === "string" && /Track all 1 installed/.test(bulk),
+        `Sammelknopf: „${bulk ?? "(keiner)"}“`,
+      );
+
+      // Uebernahme ueber die ECHTE Bedienung, nicht ueber den Flow.
+      await clickReal(
+        cdp,
+        `(() => {
+          const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
+          const root = leaf?.view?.containerEl;
+          const card = [...(root?.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card') ?? [])]
+            .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
+          return [...(card?.querySelectorAll("button") ?? [])].find((b) => b.textContent.trim().includes("Track")) ?? null;
+        })()`,
+        150,
+      );
+      const verwaltet = await pollUntil<{ id: string; installedVersion: string } | null>(
+        cdp,
+        `
+          const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.plugins[0];
+          return p ? { id: p.id, installedVersion: p.installedVersion } : null;
+        `,
+        15_000,
+        300,
+      );
+      check(
+        "G3 „Verwalten“ traegt es mit der Version VON DER PLATTE ein",
+        verwaltet?.id === TARGET_PLUGIN_ID && verwaltet.installedVersion === "0.9.0",
+        verwaltet ? `${verwaltet.id} @ ${verwaltet.installedVersion}` : "settings.plugins blieb leer",
+      );
+
+      // Jetzt findet der Update-Lauf das Plugin — genau das ging vorher nicht.
+      forge.setVersion("1.0.0");
+      await clearNotices(cdp);
+      await clickTab(cdp, "updates");
+      await clickReal(
+        cdp,
+        `(() => {
+          const leaf = app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})[0];
+          const root = leaf?.view?.containerEl;
+          return [...(root?.querySelectorAll('.okit-hub-panel[data-tab="updates"] .asl-bulk button') ?? [])][0] ?? null;
+        })()`,
+        150,
+      );
+      const notice = await waitForNotice(cdp, "update", 25_000);
+      const gefunden = await pollUntil<string>(
+        cdp,
+        `
+          const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.plugins[0];
+          return p && p.availableVersion ? p.availableVersion : null;
+        `,
+        15_000,
+        300,
+      );
+      check(
+        "G4 der Pruef-Knopf im Updates-Tab findet den Rueckstand des uebernommenen Plugins",
+        gefunden === "1.0.0",
+        `availableVersion: ${gefunden ?? "(keine)"} · Notice: „${notice.slice(0, 80)}“`,
+      );
+
+      // Und die Karte im Katalog sagt es jetzt auch.
+      await clickTab(cdp, "browse");
+      const nachCheck = await pollUntil<string>(
+        cdp,
+        inView(`
+          const card = [...root.querySelectorAll('.okit-hub-panel[data-tab="browse"] .asl-card')]
+            .find((c) => c.querySelector(".asl-card-title")?.textContent?.trim() === ${JSON.stringify(TARGET_PLUGIN_NAME)});
+          const label = card?.querySelector(".asl-status-label")?.textContent?.trim();
+          return label || null;
+        `),
+        15_000,
+        300,
+      );
+      check(
+        "G5 die Katalog-Karte zeigt installiert + verfuegbar statt „Install“",
+        nachCheck === "Installed 0.9.0 — 1.0.0 available",
+        `Status-Text: „${nachCheck ?? "(keiner)"}“`,
+      );
+
+      await removeTargetPlugin(cdp, cfg);
+      await writeSettings(cdp, { plugins: [] });
+    },
+  },
+
+  {
     key: "url",
     title: "D — Install per URL (Befehl + Modal) und Sicherheitskanten",
     run: async (cdp, forge, cfg) => {

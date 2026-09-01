@@ -100,3 +100,6 @@
 .asl-status.is-error { color: var(--text-error); }
 
 .asl-release-notes-empty { color: var(--text-muted); }
+
+/* Sammelaktionen ueber der Liste (Alle verwalten, Auf Updates pruefen) */
+.asl-bulk { display: flex; justify-content: flex-end; margin-bottom: var(--size-4-2); }

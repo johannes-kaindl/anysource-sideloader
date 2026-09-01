@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Track already-installed plugins.** The Browse tab now reads what is *actually* in the
+  vault instead of only what this plugin installed itself. A catalog entry whose plugin is
+  present but untracked offers "Track for updates"; a "Track all N installed" button above
+  the list does the whole set at once. Until now such plugins were invisible: Browse
+  offered "Install" for something long installed, and the update check ran over an empty
+  list — it never reported anything because it knew nothing.
+- **"Check for updates" as a button**, in the Updates tab and in the settings. Both run the
+  same flow as the existing command; the button in the Updates tab sits *above* the empty
+  state, so it is there precisely when nothing was found and you want to know whether the
+  check ran at all.
+- Catalog cards now show the installed version and whether it is current — a checkmark
+  state for "up to date", a warning state for "1.2.0 → 1.3.0 available".
+
+### Changed
+
+- An update check with nothing tracked now says so instead of reporting "all up to date",
+  which looked like a result and was none.
+
 ## [0.1.1] — 2026-09-01
 
 ### Added

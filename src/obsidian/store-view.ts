@@ -1,17 +1,19 @@
 // Store-View: Hub mit drei Panels (Browse/Installed/Updates). Baut auf den
 // Anwendungsfaellen aus `flows.ts` auf — dieses Modul zeichnet nur DOM und ruft sie auf.
-import { ItemView, setIcon, WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, setIcon, WorkspaceLeaf } from "obsidian";
 import { buildHubInto, type HubController, type HubPanel } from "../vendor/kit-obsidian/hub";
 import { parseCatalog, type CatalogEntry } from "../core/catalog";
-import { filterCatalogEntries, matchInstalledPlugin } from "../core/catalog-match";
+import { catalogEntryState, filterCatalogEntries, type CatalogEntryState } from "../core/catalog-match";
 import type { ManagedPlugin } from "../core/settings";
 import type { RepoRef } from "../core/forge/types";
 import * as gh from "../core/forge/github";
 import * as gitea from "../core/forge/gitea";
 import { STRINGS } from "../i18n/strings";
 import {
+  adoptFromCatalog,
   applyUpdate,
   checkOneUpdate,
+  checkUpdatesWithNotices,
   fetchReleaseNotesFor,
   installFromUrl,
   removeInstalled,
@@ -112,6 +114,39 @@ class BrowsePanel implements HubPanel<TabId> {
       return;
     }
 
+    // Was WIRKLICH im Vault liegt — je Katalog-id ein Blick auf die Platte, nicht auf
+    // `settings.plugins`. Das ist der Unterschied, der das Panel sehend macht: bis 0.1.1
+    // bot es „Install“ fuer laengst installierte Plugins an und der Update-Lauf kannte
+    // keines davon (gemessen: 0 verwaltet bei ~20 installiert).
+    const port = adapterFilePort(this.ctx.app);
+    const manifeste = await Promise.all(
+      entries.map((e) => readInstalledManifest(port, this.ctx.app.vault.configDir, e.id).catch(() => null)),
+    );
+    const zustaende = new Map<string, CatalogEntryState>();
+    entries.forEach((e, i) => {
+      zustaende.set(e.id, catalogEntryState(e, manifeste[i]?.version ?? null, this.ctx.settings.plugins));
+    });
+
+    // „Alle verwalten“ spart beim Erstkontakt die Klicks — bei zwanzig installierten
+    // Plugins ist die Einzelbedienung die eigentliche Huerde. Der Knopf erscheint nur,
+    // wenn es etwas zu uebernehmen gibt.
+    const uebernehmbar = entries.filter((e) => zustaende.get(e.id)?.kind === "unmanaged");
+    if (uebernehmbar.length > 0) {
+      const leiste = root.createDiv({ cls: "asl-bulk" });
+      const alle = leiste.createEl("button", {
+        cls: "mod-cta",
+        text: STRINGS.view.manageAll(uebernehmbar.length),
+      });
+      alle.addEventListener("click", () => {
+        alle.disabled = true;
+        void this.adoptAll(uebernehmbar, zustaende).finally(() => {
+          alle.disabled = false;
+          void this.render();
+        });
+      });
+      root.insertBefore(leiste, listEl);
+    }
+
     const draw = (query: string): void => {
       listEl.empty();
       const filtered = filterCatalogEntries(entries, query);
@@ -119,13 +154,36 @@ class BrowsePanel implements HubPanel<TabId> {
         renderEmptyState(listEl, STRINGS.view.noMatches);
         return;
       }
-      for (const entry of filtered) this.renderCard(listEl, entry);
+      for (const entry of filtered) {
+        this.renderCard(listEl, entry, zustaende.get(entry.id) ?? { kind: "not-installed" });
+      }
     };
     search.addEventListener("input", () => draw(search.value));
     draw("");
   }
 
-  private renderCard(listEl: HTMLElement, entry: CatalogEntry): void {
+  /** Sequenziell, nicht parallel: jede Uebernahme probt ihre Forge (`detectForge`), und
+   *  zwanzig gleichzeitige Anfragen an dieselbe Instanz sind der schnellste Weg in ein
+   *  Rate-Limit. Fehlschlaege werden gesammelt statt abgebrochen — eine tote Quelle darf
+   *  die anderen neunzehn nicht verhindern. */
+  private async adoptAll(
+    entries: readonly CatalogEntry[],
+    zustaende: ReadonlyMap<string, CatalogEntryState>,
+  ): Promise<void> {
+    let uebernommen = 0;
+    for (const entry of entries) {
+      const zustand = zustaende.get(entry.id);
+      if (zustand?.kind !== "unmanaged") continue;
+      try {
+        if (await adoptFromCatalog(this.ctx, entry, zustand.installedVersion)) uebernommen++;
+      } catch (err) {
+        new Notice(STRINGS.notices.adoptFailed(entry.name, err instanceof Error ? err.message : String(err)));
+      }
+    }
+    if (uebernommen > 0) new Notice(STRINGS.notices.adoptedAll(uebernommen));
+  }
+
+  private renderCard(listEl: HTMLElement, entry: CatalogEntry, zustand: CatalogEntryState): void {
     const card = listEl.createDiv({ cls: "asl-card" });
     card.createEl("h3", { cls: "asl-card-title", text: entry.name });
     card.createDiv({ cls: "asl-card-desc", text: entry.description });
@@ -136,22 +194,52 @@ class BrowsePanel implements HubPanel<TabId> {
     card.createDiv({ cls: "asl-card-author", text: STRINGS.view.byAuthor(entry.author) });
 
     const actions = card.createDiv({ cls: "asl-card-actions" });
-    const installed = matchInstalledPlugin(this.ctx.settings.plugins, entry.repo);
-    if (installed) {
-      actions.createSpan({ cls: "asl-installed-version", text: STRINGS.view.installedVersion(installed.installedVersion) });
+
+    // Der Zustand kommt aus einer puren Funktion (`catalogEntryState`), nicht aus einer
+    // Kette von ifs hier: er haengt an drei Quellen (Platte, verwaltete Liste,
+    // Check-Befund), und genau deren Verwechslung war der Defekt bis 0.1.1 — das Panel
+    // sah nur die verwaltete Liste und bot „Install“ fuer laengst Installiertes an.
+    if (zustand.kind === "not-installed") {
+      const btn = actions.createEl("button", { cls: "mod-cta", text: STRINGS.view.install });
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        // Task M18: der Katalog kennt die id schon — weicht die tatsaechlich gelieferte id
+        // ab (kompromittierte/verwechselte Quelle), bricht installFromUrl VOR jedem
+        // Schreiben ab, statt ein unerwartetes Plugin unter der Katalog-id zu installieren.
+        void installFromUrl(this.ctx, entry.repo, entry.id).finally(() => {
+          btn.disabled = false;
+          void this.render();
+        });
+      });
       return;
     }
-    const btn = actions.createEl("button", { cls: "mod-cta", text: STRINGS.view.install });
-    btn.addEventListener("click", () => {
-      btn.disabled = true;
-      // Task M18: der Katalog kennt die id schon — weicht die tatsaechlich gelieferte id
-      // ab (kompromittierte/verwechselte Quelle), bricht installFromUrl VOR jedem
-      // Schreiben ab, statt ein unerwartetes Plugin unter der Katalog-id zu installieren.
-      void installFromUrl(this.ctx, entry.repo, entry.id).finally(() => {
-        btn.disabled = false;
-        void this.render();
+
+    if (zustand.kind === "unmanaged") {
+      renderStatus(actions, "warning", STRINGS.view.installedUnmanaged(zustand.installedVersion));
+      const btn = actions.createEl("button", { text: STRINGS.view.manage });
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        void adoptFromCatalog(this.ctx, entry, zustand.installedVersion)
+          .then((ok) => {
+            if (ok) new Notice(STRINGS.notices.adopted(entry.name, zustand.installedVersion));
+          })
+          .finally(() => {
+            btn.disabled = false;
+            void this.render();
+          });
       });
-    });
+      return;
+    }
+
+    if (zustand.availableVersion) {
+      renderStatus(
+        actions,
+        "warning",
+        STRINGS.view.installedOutdated(zustand.installedVersion, zustand.availableVersion),
+      );
+      return;
+    }
+    renderStatus(actions, "ok", STRINGS.view.installedCurrent(zustand.installedVersion));
   }
 }
 
@@ -259,6 +347,22 @@ class UpdatesPanel implements HubPanel<TabId> {
     const root = this.root;
     if (!root) return;
     root.empty();
+
+    // Der Knopf steht VOR dem Empty-State-Return — sonst fehlt er genau in der Lage, in
+    // der man ihn sucht: wenn nichts gefunden wurde und man wissen will, ob ueberhaupt
+    // geprueft wurde. Genau das war die Rueckmeldung („ich musste Obsidian neu starten,
+    // um den Check auszuloesen“).
+    const leiste = root.createDiv({ cls: "asl-bulk" });
+    const pruefen = leiste.createEl("button", { cls: "mod-cta", text: STRINGS.view.checkAll });
+    pruefen.addEventListener("click", () => {
+      pruefen.disabled = true;
+      pruefen.setText(STRINGS.notices.checking);
+      void checkUpdatesWithNotices(this.ctx).finally(() => {
+        pruefen.disabled = false;
+        pruefen.setText(STRINGS.view.checkAll);
+        void this.render();
+      });
+    });
 
     const pending = this.ctx.settings.plugins.filter((p) => p.availableVersion !== null);
     if (pending.length === 0) {

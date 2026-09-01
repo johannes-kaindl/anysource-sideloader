@@ -294,3 +294,55 @@ export async function removeInstalled(ctx: FlowContext, id: string): Promise<voi
   ctx.settings.plugins = ctx.settings.plugins.filter((p) => p.id !== id);
   await ctx.saveSettings();
 }
+
+/**
+ * Ein bereits installiertes Plugin unter Verwaltung nehmen, ohne es neu zu installieren.
+ *
+ * Der Anlass ist gemessen: in zwei produktiven Vaults standen ~20 installierte Plugins
+ * neben **null** verwalteten. Wer den Sideloader erst benutzt, nachdem er seine Plugins
+ * hat, bekam von ihm nie einen Update-Hinweis — nicht weil die Pruefung fehlschlug,
+ * sondern weil sie ueber eine leere Liste lief.
+ *
+ * Bewusst **ohne Confirm**: es wird nichts heruntergeladen und nichts auf die Platte
+ * geschrieben, nur ein Eintrag in den Einstellungen angelegt. Die Bestaetigung sitzt dort,
+ * wo sie hingehoert — beim spaeteren Update, das Code schreibt.
+ */
+export async function adoptFromCatalog(
+  ctx: FlowContext,
+  entry: { id: string; name: string; repo: string },
+  installedVersion: string,
+): Promise<boolean> {
+  const ref = await detectForge(ctx.http, entry.repo);
+  if (!ref) {
+    new Notice(STRINGS.notices.adoptFailed(entry.name, STRINGS.notices.invalidSource));
+    return false;
+  }
+  upsertManagedPlugin(ctx.settings, {
+    id: entry.id,
+    repoUrl: entry.repo,
+    ref,
+    installedVersion,
+    availableVersion: null,
+    addedFrom: "catalog",
+  });
+  await ctx.saveSettings();
+  return true;
+}
+
+/** Update-Pruefung MIT Rueckmeldung — die eine Wahrheit fuer Befehl, Hub-Knopf und
+ *  Settings-Knopf. Ohne sie haetten drei Aufrufstellen drei leicht verschiedene
+ *  Meldungen, und die Frage „lief die Pruefung ueberhaupt?" bliebe an der Stelle offen,
+ *  an der sie gestellt wird. */
+export async function checkUpdatesWithNotices(ctx: FlowContext): Promise<CheckAllUpdatesResult> {
+  if (ctx.settings.plugins.length === 0) {
+    // Der haeufigste Fall beim Erstkontakt — und frueher der stillste: eine Pruefung ohne
+    // Gegenstand meldete "alles aktuell", was wie ein Ergebnis aussieht und keines ist.
+    new Notice(STRINGS.notices.nothingTracked);
+    return { results: [], errors: [] };
+  }
+  const ergebnis = await checkAllUpdates(ctx);
+  if (ergebnis.results.length > 0) new Notice(STRINGS.notices.updatesAvailable(ergebnis.results.length));
+  else new Notice(STRINGS.notices.upToDate);
+  for (const err of ergebnis.errors) new Notice(STRINGS.notices.checkFailed(err.id, err.message));
+  return ergebnis;
+}

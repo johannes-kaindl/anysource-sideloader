@@ -14,6 +14,7 @@ import {
 } from "obsidian";
 import type { SideloaderSettings } from "../core/settings";
 import type { SecretStore } from "./secrets";
+import { checkUpdatesWithNotices, type FlowContext } from "./flows";
 import { refreshSettingsTab, renderSettingDefinitions } from "../vendor/kit-obsidian/settings_walker";
 import { STRINGS } from "../i18n/strings";
 
@@ -21,6 +22,10 @@ export interface SettingsHost extends Plugin {
   settings: SideloaderSettings;
   secretStore: SecretStore;
   saveSettings(): Promise<void>;
+  /** Der Settings-Tab loest Ablaeufe aus (Update-Pruefung) und braucht dafuer denselben
+   *  Kontext wie View und Kommandos — gebaut wird er weiterhin nur an einer Stelle
+   *  (`main.ts`), damit `http`/`secretStore` nicht zweimal verdrahtet werden. */
+  flowContext(): FlowContext;
 }
 
 /** Trimmt und entfernt Protokoll + Pfad — uebrig bleibt host[:port]. Ein Nutzer tippt
@@ -83,6 +88,21 @@ export class SideloaderSettingTab extends PluginSettingTab {
         name: STRINGS.settings.checkOnStartup.name,
         desc: STRINGS.settings.checkOnStartup.desc,
         control: { type: "toggle", key: "checkOnStartup" },
+      },
+      {
+        // Der Knopf, den Johannes gesucht hat. Er sitzt bewusst AUCH hier und nicht nur im
+        // Hub: die Einstellungen sind der Ort, an dem man nach „wie loese ich das aus“
+        // sucht. Beide Wege rufen denselben Flow — zwei Knoepfe, eine Wahrheit.
+        name: STRINGS.settings.checkUpdates.name,
+        desc: STRINGS.settings.checkUpdates.desc,
+        render: (row: Setting) => {
+          row.addButton((btn) =>
+            btn.setButtonText(STRINGS.settings.checkUpdatesButton).onClick(() => {
+              btn.setDisabled(true);
+              void checkUpdatesWithNotices(this.host.flowContext()).finally(() => btn.setDisabled(false));
+            }),
+          );
+        },
       },
       {
         type: "group",

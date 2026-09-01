@@ -83,6 +83,22 @@ host.
 
 No screenshots yet — a follow-up pass will add them via the `readme-shots` workflow.
 
+## Already have plugins installed?
+
+The Browse tab reads what is actually in your vault, not just what it installed itself. A
+catalog entry whose plugin is already present shows **Track for updates** instead of
+Install — one click, no reinstall, and it keeps whatever version you have. Above the list,
+**Track all N installed** does the whole set at once.
+
+This matters because update checks only cover *tracked* plugins. If nothing is tracked, a
+check has nothing to look at — and it will say so rather than report that everything is up
+to date.
+
+Checking is manual by default: the **Check for updates** button sits in the Updates tab and
+in the settings, and the same action is available from the command palette (so you can bind
+a hotkey). With "Check for updates on startup" enabled, it also runs once shortly after
+Obsidian starts. Updates are never installed without your confirmation.
+
 ## Known limitations
 
 - **Private GitHub sources are experimental — and one half of why is now measured.**
