@@ -1,0 +1,29 @@
+#!/bin/sh
+# Vendort Kit-Module byte-identisch aus den Schwester-Repos (Dach-AGENTS.md, Kit-first).
+# Nie von Hand editieren — Skript neu laufen lassen. Quelle festnageln per KIT_DIR/CODEKIT_DIR
+# (Lesson 2026-08-22/3d-codeblocks: sonst misst ein Wiederholungslauf ein Upgrade).
+set -e
+KIT=${KIT_DIR:-../obsidian-kit}
+CODEKIT=${CODEKIT_DIR:-/Users/Shared/code/code-kit}
+DATE=$(date +%F)
+stamp() { # $1 repo $2 version $3 sha $4 dir
+  printf '{\n  "source": "%s",\n  "version": "%s",\n  "sha": "%s",\n  "vendored": "%s"\n}\n' "$1" "$2" "$3" "$DATE" > "$4/VENDOR.json"
+}
+mkdir -p src/vendor/code-kit src/vendor/kit-obsidian tests/vendor/kit
+CK_VER=$(git -C "$CODEKIT" describe --tags --abbrev=0); CK_SHA=$(git -C "$CODEKIT" rev-parse HEAD)
+# num wird von settings_schema importiert (clampInt) — mitgenommen statt den Vendor-Stand
+# von Hand zu editieren.
+for f in settings settings_schema sha256 i18n num; do
+  { printf '%s\n' "// vendored from code-kit@$CK_VER, src/ts/pure/$f.ts — do not hand-edit; re-vendor via tools/sync-kit.sh"; cat "$CODEKIT/src/ts/pure/$f.ts"; } > "src/vendor/code-kit/$f.ts"
+done
+stamp code-kit "$CK_VER" "$CK_SHA" src/vendor/code-kit
+K_VER=$(git -C "$KIT" describe --tags --abbrev=0); K_SHA=$(git -C "$KIT" rev-parse HEAD)
+{ printf '%s\n' "// vendored from obsidian-kit@$K_VER, src/testing/obsidian-mock.ts — do not hand-edit; re-vendor via tools/sync-kit.sh"; cat "$KIT/src/testing/obsidian-mock.ts"; } > tests/vendor/kit/obsidian-mock.ts
+stamp obsidian-kit "$K_VER" "$K_SHA" tests/vendor/kit
+# folder-suggest wird von settings_walker importiert — mitgenommen statt den Vendor-Stand
+# von Hand zu editieren.
+for f in confirm hub settings_walker folder-suggest; do
+  { printf '%s\n' "// vendored from obsidian-kit@$K_VER, src/obsidian/$f.ts — do not hand-edit; re-vendor via tools/sync-kit.sh"; cat "$KIT/src/obsidian/$f.ts"; } > "src/vendor/kit-obsidian/$f.ts"
+done
+stamp obsidian-kit "$K_VER" "$K_SHA" src/vendor/kit-obsidian
+echo "vendored: code-kit($CK_VER): settings settings_schema sha256 i18n num | obsidian-kit($K_VER): confirm hub settings_walker folder-suggest obsidian-mock"
