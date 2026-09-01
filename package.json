@@ -1,6 +1,6 @@
 {
   "name": "anysource-sideloader",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Install and update Obsidian plugins from any git forge - GitHub, Forgejo, Gitea, or raw URLs. Includes subscribable plugin catalogs.",
   "type": "module",
   "scripts": {

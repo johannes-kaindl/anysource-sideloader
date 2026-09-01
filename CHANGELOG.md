@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-09-01
+
 First public release.
 
 - Forge adapters for GitHub, Forgejo/Gitea, and plain raw-file sources, with
