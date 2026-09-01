@@ -7,7 +7,7 @@ import { detectForge, fetchLatestRelease, fetchPluginFiles, type FetchedPlugin }
 import { pluginDir } from "../core/install";
 import type { HttpPort, ReleaseInfo, RepoRef } from "../core/forge/types";
 import type { ManagedPlugin, SideloaderSettings } from "../core/settings";
-import { planUpdates, type UpdateCheckResult } from "../core/plan";
+import { fasseFehlerZusammen, planUpdates, type UpdateCheckResult } from "../core/plan";
 import { isNewer } from "../core/version";
 import { STRINGS } from "../i18n/strings";
 import type { SecretStore } from "./secrets";
@@ -342,7 +342,13 @@ export async function checkUpdatesWithNotices(ctx: FlowContext): Promise<CheckAl
   }
   const ergebnis = await checkAllUpdates(ctx);
   if (ergebnis.results.length > 0) new Notice(STRINGS.notices.updatesAvailable(ergebnis.results.length));
-  else new Notice(STRINGS.notices.upToDate);
-  for (const err of ergebnis.errors) new Notice(STRINGS.notices.checkFailed(err.id, err.message));
+  else if (ergebnis.errors.length === 0) new Notice(STRINGS.notices.upToDate);
+  // Eine Zeile statt einer pro Fehler: bei einem Forge-Ausfall mit zwanzig verwalteten
+  // Plugins stapelten sich sonst zwanzig identische Notices uebereinander und begruben die
+  // eigentliche Meldung. Und „alles aktuell“ wird nicht mehr gemeldet, wenn Pruefungen
+  // fehlgeschlagen sind — das waere eine Aussage ueber Plugins, die gar nicht geprueft
+  // werden konnten.
+  const zusammenfassung = fasseFehlerZusammen(ergebnis.errors);
+  if (zusammenfassung) new Notice(zusammenfassung, 10000);
   return ergebnis;
 }

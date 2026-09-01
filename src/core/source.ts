@@ -55,11 +55,25 @@ export async function fetchLatestRelease(
   }
   // raw: kein Release-Endpunkt — Manifest direkt vom Default-Branch laden und ein
   // synthetisches ReleaseInfo daraus bauen.
-  const src = { ref, gitRef: "main" };
-  const manifestUrl = rawFileUrl(src, "manifest.json");
-  const manifestRes = await http({ url: manifestUrl, headers: {} });
+  //
+  // Der Default-Branch ist nicht abfragbar (dafuer braeuchte es die API, die hier gerade
+  // fehlt), also wird geraten — und zwar in beide Richtungen: `main` zuerst, `master` als
+  // Rueckfall. Ohne den zweiten Versuch war jedes aeltere Repo unerreichbar, obwohl die
+  // Quelle gueltig ist. Gemeldet wird der Fehler des ERSTEN Versuchs: `main` ist der
+  // erwartete Name, und eine Meldung ueber `master` schickt die Fehlersuche in die Irre.
+  const zweige = ["main", "master"];
+  let src = { ref, gitRef: zweige[0] as string };
+  let manifestRes = await http({ url: rawFileUrl(src, "manifest.json"), headers: {} });
+  const ersterFehler = manifestRes.status;
+  for (let i = 1; i < zweige.length && manifestRes.status !== 200; i++) {
+    src = { ref, gitRef: zweige[i] as string };
+    manifestRes = await http({ url: rawFileUrl(src, "manifest.json"), headers: {} });
+  }
   if (manifestRes.status !== 200) {
-    throw new Error(`Download fehlgeschlagen fuer manifest.json (${manifestUrl}): HTTP ${manifestRes.status}`);
+    throw new Error(
+      `Download fehlgeschlagen fuer manifest.json (${rawFileUrl({ ref, gitRef: zweige[0] as string }, "manifest.json")}): `
+      + `HTTP ${ersterFehler}`,
+    );
   }
   const manifest = JSON.parse(manifestRes.text) as { version?: unknown };
   const version = typeof manifest.version === "string" ? manifest.version : "0.0.0";

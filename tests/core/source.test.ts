@@ -124,3 +124,48 @@ describe("fetchPluginFiles", () => {
     expect(seenHeaders["https://x/dl/manifest.json"]).toEqual({ Authorization: "token secret-token" });
   });
 });
+
+describe("raw-Quelle: Default-Branch", () => {
+  /** Ein HttpPort, der nur die genannten URLs mit 200 beantwortet — alles andere 404. */
+  function nurDiese(ok: Record<string, string>): { port: HttpPort; gesehen: string[] } {
+    const gesehen: string[] = [];
+    const port: HttpPort = async (req) => {
+      gesehen.push(req.url);
+      const body = ok[req.url];
+      const buf = new TextEncoder().encode(body ?? "").buffer as ArrayBuffer;
+      return { status: body === undefined ? 404 : 200, text: body ?? "", arrayBuffer: buf };
+    };
+    return { port, gesehen };
+  }
+
+  const ref = { kind: "raw" as const, baseUrl: "https://forge.example.com", owner: "o", repo: "r" };
+
+  it("nimmt `main`, wenn es dort liegt", async () => {
+    const { port, gesehen } = nurDiese({
+      "https://forge.example.com/o/r/raw/main/manifest.json": '{"version":"2.0.0"}',
+    });
+    const rel = await fetchLatestRelease(port, ref, null);
+    expect(rel.version).toBe("2.0.0");
+    expect(gesehen).toHaveLength(1);
+  });
+
+  it("faellt auf `master` zurueck, wenn `main` 404 liefert", async () => {
+    // Der haeufigste Grund, warum eine sonst gueltige Raw-Quelle nicht installierbar war:
+    // aeltere Repos heissen `master`, und der Default war hart auf `main` verdrahtet.
+    const { port, gesehen } = nurDiese({
+      "https://forge.example.com/o/r/raw/master/manifest.json": '{"version":"1.5.0"}',
+    });
+    const rel = await fetchLatestRelease(port, ref, null);
+    expect(rel.version).toBe("1.5.0");
+    expect(gesehen[0]).toContain("/raw/main/");
+    expect(gesehen[1]).toContain("/raw/master/");
+    // Die Asset-URLs muessen auf DENSELBEN Branch zeigen wie das gefundene Manifest —
+    // sonst laedt der Install die Dateien von einem Branch, den es nicht gibt.
+    expect(rel.assets.every((a) => a.downloadUrl.includes("/raw/master/"))).toBe(true);
+  });
+
+  it("meldet den Fehler des ERSTEN Versuchs, wenn beide fehlschlagen", async () => {
+    const { port } = nurDiese({});
+    await expect(fetchLatestRelease(port, ref, null)).rejects.toThrow(/manifest\.json/);
+  });
+});

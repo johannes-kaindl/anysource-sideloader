@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A raw source on a `master` repository was unreachable.** The default branch was
+  hard-coded to `main`; it now falls back to `master` when `main` returns 404, and the asset
+  URLs follow whichever branch actually answered. The error message still names the `main`
+  attempt — that is the expected name, and reporting `master` would send the search the
+  wrong way.
+- **A forge outage no longer buries the screen in notices.** With twenty tracked plugins, a
+  failed check produced twenty identical notices and hid the actual result underneath. They
+  are summarised into one line now, and "everything up to date" is no longer claimed when
+  checks failed — that would be a statement about plugins that could not be checked.
+
+### Removed
+
+- Dead `github` branch in the raw URL builder. `detectForge` never routes github.com through
+  the raw path, so it could not run — and dead code that builds a foreign URL shape is the
+  kind that gets mistaken for proven.
+
 ## [0.3.0] — 2026-09-01
 
 ### Changed — the store moved into the settings tab
