@@ -33,6 +33,17 @@ describe("detectForge", () => {
   });
 });
 
+it("fetchLatestRelease (raw): 404 auf manifest.json wirft sprechenden Fehler statt SyntaxError", async () => {
+  const http = fakeHttp({});
+  await expect(
+    fetchLatestRelease(
+      http,
+      { kind: "raw", baseUrl: "https://example.com", owner: "o", repo: "r" },
+      null,
+    ),
+  ).rejects.toThrow(/manifest\.json/);
+});
+
 it("fetchLatestRelease nutzt den passenden Adapter", async () => {
   const http = fakeHttp({
     "https://git.jkaindl.de/api/v1/repos/jkaindl/calendar-notes/releases/latest": { text: GITEA_FIXTURE },

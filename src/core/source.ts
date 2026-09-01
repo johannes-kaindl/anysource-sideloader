@@ -48,7 +48,11 @@ export async function fetchLatestRelease(
   // raw: kein Release-Endpunkt — Manifest direkt vom Default-Branch laden und ein
   // synthetisches ReleaseInfo daraus bauen.
   const src = { ref, gitRef: "main" };
-  const manifestRes = await http({ url: rawFileUrl(src, "manifest.json"), headers: {} });
+  const manifestUrl = rawFileUrl(src, "manifest.json");
+  const manifestRes = await http({ url: manifestUrl, headers: {} });
+  if (manifestRes.status !== 200) {
+    throw new Error(`Download fehlgeschlagen fuer manifest.json (${manifestUrl}): HTTP ${manifestRes.status}`);
+  }
   const manifest = JSON.parse(manifestRes.text) as { version?: unknown };
   const version = typeof manifest.version === "string" ? manifest.version : "0.0.0";
   return {
@@ -66,6 +70,11 @@ export async function fetchLatestRelease(
 export interface FetchedPlugin {
   manifest: PluginManifestData;
   files: Array<{ name: string; data: ArrayBuffer }>;
+  /** Aggregiertes Checksummen-Verdikt ueber alle geladenen `files` (worst-of:
+   *  mismatch > absent > ok). "mismatch" heisst: die Bytes in `files` sind NICHT geprueft
+   *  vertrauenswuerdig — ein Aufrufer, der sie auf Platte schreibt, MUSS bei "mismatch"
+   *  vor jedem Schreibvorgang abbrechen. Diese Funktion selbst schreibt nichts und
+   *  erzwingt das nicht; die Durchsetzung ist Aufgabe einer spaeteren Task. */
   checksums: ChecksumVerdict;
   release: ReleaseInfo;
 }
