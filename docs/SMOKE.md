@@ -126,6 +126,7 @@ Plugin still überschreiben konnte.
 | E4 | „Add catalog URL“ trägt den Katalog ein (über die echte Bedienung, nicht per `push()`) |
 | E5 | Token-Host wird auf `host[:port]` normalisiert; die Zeile zeigt **kein Klartext-Token** |
 | E6 | Der Toggle landet in `data.json`, nicht nur im Speicher |
+| E7 | Der Klick auf „Check now" **friert die App nicht ein** |
 
 E2/E3 messen die **Bedienung**, nicht den Namen: ein Item mit Beschriftung und ohne Knopf
 sieht auf einem Screenshot vollständig aus und ist es nicht. E4/E5 werden übersprungen,
@@ -137,6 +138,14 @@ ist dann korrekt, aber ihr DOM liegt nicht im Workspace-Renderer, und
 Plugin-Defekt schließt, sucht am falschen Ende. Der Treiber hält beide Lagen offen
 (`settingsStelle`) und verbindet sich im Fenster-Fall über `attachTo("settings", port)`.
 Unterschieden wird an der Sache, nie am Fenstertitel: der ist lokalisiert.
+
+E7 ist der Prüfpunkt, den es ohne einen echten Ausfall nicht gäbe: E1–E6 messen alle, dass
+die Bedienelemente **da** sind — keiner drückte je einen. Am 2026-09-01 fror ein Klick auf
+„Check now" die gesamte App ein (beide Renderer, ohne Exception, ohne Konsolenmeldung), und
+der Smoke lief grün durch. ⚠️ Gemessen wird **9 Sekunden nach** dem Klick und auf der
+Node-Seite: der Freeze trat erst ein, als der Netzabruf zurückkam, und die erste Fassung des
+Punkts maß sofort — sie blieb im Defektzustand grün. Gefunden hat das die Gegenprobe, nicht
+der Lauf.
 
 Der Schlüsselbund wird **nicht** beschrieben: `app.secretStorage.setSecret` schriebe in den
 Schlüsselbund des Rechners, und ein Messwerkzeug, das dort etwas hinterlässt, ändert seinen
@@ -206,6 +215,7 @@ gelten. Ohne Netz `übersprungen`.
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
+| 2026-09-01 (0.2.1) | 1.13.7 | **44/44** — E7 neu | Gegenprobe: alter Knopf-Code zurück → **E7 rot**, sonst keiner; die erste Fassung von E7 blieb dabei grün und musste korrigiert werden |
 | 2026-09-01 (0.2.0) | 1.13.7 | **43/43** — Abschnitt G neu | Gegenprobe: Platte-Blick ausgebaut → **G1–G5 rot (0/5)**, Abschnitt C unverändert 13/13; Vorhersage traf exakt |
 | 2026-09-01 (nach dem Settings-Fix) | 1.13.7 | **38/38** — E2/E3 grün, E4/E5 laufen jetzt statt übersprungen zu werden | Fix belegt: derselbe Treiber war vorher rot, und die A/B-Messung zeigt die Ursache | bestanden: Overwrite-Guard (`src/obsidian/flows.ts:121`) ausgebaut → **genau D3** rot, sonst keiner mitgefallen |
 

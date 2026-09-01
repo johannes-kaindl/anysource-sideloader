@@ -1353,6 +1353,40 @@ const SECTIONS: Section[] = [
         // Die drei Stufen getrennt melden: „Klick kam nicht an“, „kam an, Speicher folgt
         // nicht“ und „Speicher folgt, Platte nicht“ sind drei verschiedene Befunde und
         // schicken die Fehlersuche an drei verschiedene Enden.
+        // E7 misst, was E1–E6 alle uebersehen haben: dass die App den Klick UEBERLEBT.
+        // Der „Check now“-Knopf fror am 2026-09-01 die gesamte App ein — beide Renderer
+        // antworteten nicht mehr, ohne Exception und ohne Konsolenmeldung. Kein einziger
+        // Pruefpunkt sah das, weil keiner den Knopf drueckte: gemessen wurde, dass die
+        // Bedienelemente DA sind, nie, was ihr Gebrauch anrichtet.
+        //
+        // Der Prueflauf lebt danach weiter — genau das ist die Zusicherung: ein
+        // eingefrorener Renderer laesst JEDES folgende `evaluate` in seine Frist laufen,
+        // der Punkt wird also rot, ohne dass man ihm etwas beibringen muss.
+        await clearNotices(cdp);
+        const geklickt = await clickReal(
+          stelle.cdp,
+          stelle.el(`[...root.querySelectorAll("button")].find((b) => b.textContent.trim() === "Check now")`),
+          150,
+        );
+        // ⚠️ NACH dem Flow messen, nicht direkt nach dem Klick. Die erste Fassung dieses
+        // Punkts pruefte sofort und blieb im Defektzustand GRUEN: der Freeze tritt erst ein,
+        // wenn der Netzabruf zurueckkommt — Sekunden nach dem Klick. Gefunden hat das die
+        // Gegenprobe, nicht der Lauf: sie zeigte E7 gruen, waehrend das Zurueckschreiben der
+        // Einstellungen am Ende desselben Laufs an einem toten Renderer scheiterte
+        // („nachher: (Fehler)“). Gewartet wird auf der NODE-Seite, weil ein `setTimeout` im
+        // Renderer bei genau diesem Defekt nie zurueckkaeme.
+        await new Promise((r) => setTimeout(r, 9000));
+        const lebtSettings = await stelle.cdp
+          .evaluate<string>(`return "ja";`)
+          .catch(() => "(keine Antwort)");
+        const lebtWorkspace = await cdp.evaluate<string>(`return "ja";`).catch(() => "(keine Antwort)");
+        check(
+          "E7 der Klick auf „Check now“ friert die App nicht ein",
+          geklickt && lebtSettings === "ja" && lebtWorkspace === "ja",
+          `Klick getroffen: ${geklickt} · Einstellungen antwortet: ${lebtSettings} · ` +
+            `Workspace antwortet: ${lebtWorkspace}`,
+        );
+
         check(
           "E6 Toggle „Check on startup“ landet in data.json, nicht nur im Speicher",
           persistiert !== null,

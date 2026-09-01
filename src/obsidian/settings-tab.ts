@@ -14,7 +14,7 @@ import {
 } from "obsidian";
 import type { SideloaderSettings } from "../core/settings";
 import type { SecretStore } from "./secrets";
-import { checkUpdatesWithNotices, type FlowContext } from "./flows";
+import type { FlowContext } from "./flows";
 import { refreshSettingsTab, renderSettingDefinitions } from "../vendor/kit-obsidian/settings_walker";
 import { STRINGS } from "../i18n/strings";
 
@@ -98,8 +98,34 @@ export class SideloaderSettingTab extends PluginSettingTab {
         render: (row: Setting) => {
           row.addButton((btn) =>
             btn.setButtonText(STRINGS.settings.checkUpdatesButton).onClick(() => {
-              btn.setDisabled(true);
-              void checkUpdatesWithNotices(this.host.flowContext()).finally(() => btn.setDisabled(false));
+              // ⚠️ Hier NICHT den Flow direkt aufrufen und NICHT `setDisabled` setzen.
+              //
+              // Gemessen 2026-09-01 (Obsidian 1.13.7): ein Klick auf diesen Knopf fror die
+              // GESAMTE App ein — beide Renderer antworteten nicht mehr auf
+              // `Runtime.evaluate`, ohne Exception und ohne Konsolenmeldung, und
+              // `Debugger.pause` lieferte KEINEN laufenden JS-Stack. Es ist also keine
+              // JS-Endlosschleife, sondern etwas unterhalb davon; der Zustand blieb
+              // bestehen, bis Obsidian neu gestartet wurde.
+              //
+              // Zwei Verdaechtige, beide hier entfernt statt einer davon: (a) der Flow lief
+              // im Kontext des Einstellungs-FENSTERS, waehrend derselbe Flow im
+              // Workspace-Fenster nachweislich durchlaeuft (GUI-Smoke G4), und (b)
+              // `ButtonComponent.setDisabled()` im Klick-Handler — dieselbe Bauart hing
+              // schon einmal in einem Nachbar-Repo (koda-agent, 2026-08-06, dort nie
+              // reproduziert). WELCHER der beiden es ist, ist NICHT geklaert; die Task dazu
+              // liegt im Cockpit. Bis dahin gilt die vorsichtige Fassung.
+              //
+              // Der Befehl fuehrt denselben Ablauf im Workspace-Kontext aus — dort, wo er
+              // gemessen funktioniert.
+              // `app.commands` ist in `obsidian.d.ts` nicht deklariert (wie `app.plugins`,
+              // das dieses Repo an anderer Stelle schon so nutzt): schmales lokales
+              // Interface statt `any`, mit Form-Pruefung vor dem Aufruf.
+              const commands = (this.app as unknown as {
+                commands?: { executeCommandById?: (id: string) => unknown };
+              }).commands;
+              if (typeof commands?.executeCommandById === "function") {
+                commands.executeCommandById(`${this.host.manifest.id}:check-updates`);
+              }
             }),
           );
         },

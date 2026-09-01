@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Clicking "Check now" in the settings froze the whole app.** Not just the settings
+  window — both renderers stopped responding, with no exception and no console message,
+  and the state persisted until Obsidian was restarted. The check now runs through the
+  registered command, which executes in the workspace context where the same flow is
+  measured to work.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added
