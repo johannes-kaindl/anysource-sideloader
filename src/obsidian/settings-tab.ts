@@ -70,17 +70,23 @@ export class SideloaderSettingTab extends PluginSettingTab {
   // aus Netz und Platte. Deshalb ein Cache, der beim Oeffnen gefuellt wird und danach EIN
   // `refresh()` ausloest: der erste Aufbau zeigt „laedt…“, der zweite die Eintraege. Ohne
   // diesen Umweg muesste die Struktur auf Daten warten, die es beim Zeichnen noch nicht gibt.
-  private katalog: { stand: "kalt" | "laedt" | "da"; eintraege: CatalogEntry[]; fehler: string } = {
-    stand: "kalt",
-    eintraege: [],
-    fehler: "",
-  };
+  private katalog: {
+    stand: "kalt" | "laedt" | "da";
+    eintraege: CatalogEntry[];
+    fehler: string;
+    /** Die Katalog-URLs, zu denen dieser Stand gehoert. Ohne diesen Schluessel ueberlebt
+     *  der Cache eine Aenderung der Abos: wer einen Katalog entfernt, saehe dessen
+     *  Eintraege weiter (gemessen 2026-09-02 vom GUI-Smoke — bei leerer Abo-Liste standen
+     *  noch 22 Plugins in der Sektion). */
+    schluessel: string;
+  } = { stand: "kalt", eintraege: [], fehler: "", schluessel: "" };
   /** Plugin-id → Version, die TATSAECHLICH unter `.obsidian/plugins/` liegt. */
   private installiert = new Map<string, string>();
   private suche = "";
 
   private async ladeKatalog(): Promise<void> {
-    this.katalog = { stand: "laedt", eintraege: [], fehler: "" };
+    const schluessel = JSON.stringify(this.host.settings.catalogs);
+    this.katalog = { stand: "laedt", eintraege: [], fehler: "", schluessel };
     const eintraege: CatalogEntry[] = [];
     const fehler: string[] = [];
     for (const url of this.host.settings.catalogs) {
@@ -96,18 +102,39 @@ export class SideloaderSettingTab extends PluginSettingTab {
       }
     }
 
-    // Der echte Bestand auf der Platte — nicht `settings.plugins`. Genau diese
-    // Verwechslung machte das Plugin bis 0.1.1 im vollen Vault blind.
+    this.katalog = { stand: "da", eintraege, fehler: fehler.join("; "), schluessel };
+    await this.ladeInstallierte();
+    this.refresh();
+  }
+
+  /**
+   * Den echten Bestand von der Platte lesen — nicht `settings.plugins`, und **nicht** nur
+   * beim Katalog-Laden.
+   *
+   * Der Platten-Zustand aendert sich, ohne dass ein Katalog neu geladen wird: jemand
+   * installiert ein Plugin ueber BRAT oder von Hand, aktualisiert eines am Sideloader
+   * vorbei, loescht einen Ordner. Haengt die Anzeige am Katalog-Cache, zeigt der Tab
+   * danach „Install“ fuer etwas, das laengst daliegt (gemessen 2026-09-02 vom GUI-Smoke,
+   * Abschnitt G). Deshalb bei jedem Aufbau des Tabs, und weil es nur Datei-Reads sind, ist
+   * das billig.
+   *
+   * ⚠️ `refresh()` nur bei ECHTER Aenderung — sonst loest der Aufbau einen Aufbau aus.
+   */
+  private async ladeInstallierte(): Promise<void> {
     const port = adapterFilePort(this.app);
-    const ids = new Set([...eintraege.map((e) => e.id), ...this.host.settings.plugins.map((p) => p.id)]);
-    this.installiert.clear();
+    const ids = new Set([
+      ...this.katalog.eintraege.map((e) => e.id),
+      ...this.host.settings.plugins.map((p) => p.id),
+    ]);
+    const neu = new Map<string, string>();
     for (const id of ids) {
       const m = await readInstalledManifest(port, this.app.vault.configDir, id).catch(() => null);
-      if (m) this.installiert.set(id, m.version);
+      if (m) neu.set(id, m.version);
     }
-
-    this.katalog = { stand: "da", eintraege, fehler: fehler.join("; ") };
-    this.refresh();
+    const unveraendert =
+      neu.size === this.installiert.size && [...neu].every(([k, v]) => this.installiert.get(k) === v);
+    this.installiert = neu;
+    if (!unveraendert) this.refresh();
   }
 
   private zustandVon(entry: CatalogEntry): CatalogEntryState {
@@ -171,6 +198,11 @@ export class SideloaderSettingTab extends PluginSettingTab {
   // nicht nach (i2m-Befund), und eine Zeile, die ihren Loeschknopf selbst traegt, ist in
   // beiden Pfaden dieselbe.
   getSettingDefinitions(): SettingDefinitionItem<keyof SideloaderSettings>[] {
+    // Der Platten-Zustand wird bei JEDEM Aufbau frisch gelesen — hier und nicht in
+    // `rebuild()`, weil das nur den Fallback-Pfad (<1.13) trifft; `getSettingDefinitions()`
+    // ist der gemeinsame Punkt beider Renderpfade. Async, und `ladeInstallierte` loest nur
+    // bei ECHTER Aenderung ein `refresh()` aus — sonst baute der Aufbau sich selbst neu.
+    void this.ladeInstallierte();
     return [
       {
         name: STRINGS.settings.checkOnStartup.name,
@@ -260,6 +292,17 @@ export class SideloaderSettingTab extends PluginSettingTab {
    *  aus (`paperless-storage`-Befund). */
   private refresh(): void {
     refreshSettingsTab(this, () => this.rebuild());
+  }
+
+  /** Von aussen anstossbares Neuzeichnen.
+   *
+   *  Noetig, weil Ablaeufe auch ausserhalb des Tabs laufen: „Check for updates“ haengt am
+   *  registrierten Befehl (der im Workspace-Kontext ausgefuehrt wird), und der Startup-Check
+   *  laeuft ganz ohne UI. Ohne diesen Weg aendert sich `availableVersion`, waehrend der
+   *  offene Tab weiter den alten Stand zeigt — man drueckt „Check now“, bekommt eine Notice
+   *  und sieht in der Liste nichts (gemessen 2026-09-02, GUI-Smoke G5). */
+  aktualisieren(): void {
+    this.refresh();
   }
 
   // ── Listen als Definitionen (ein Code, beide Pfade) ──────────────────────
@@ -383,6 +426,11 @@ export class SideloaderSettingTab extends PluginSettingTab {
   private browseItems(): SettingGroupItem<keyof SideloaderSettings>[] {
     if (this.host.settings.catalogs.length === 0) {
       return [this.hinweisItem(STRINGS.store.noCatalogs)];
+    }
+    // Der Cache gehoert zu einer bestimmten Abo-Liste. Aendert sie sich, ist er wertlos —
+    // sonst zeigt die Sektion Eintraege aus einem Katalog, den es nicht mehr gibt.
+    if (this.katalog.schluessel !== JSON.stringify(this.host.settings.catalogs)) {
+      this.katalog = { stand: "kalt", eintraege: [], fehler: "", schluessel: "" };
     }
     if (this.katalog.stand !== "da") {
       if (this.katalog.stand === "kalt") void this.ladeKatalog();

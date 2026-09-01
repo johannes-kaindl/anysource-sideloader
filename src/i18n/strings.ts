@@ -23,7 +23,7 @@ export const STRINGS = {
     tokenFallbackPlaceholder: "Token (kept for this session only, no keychain available)",
     checkUpdates: {
       name: "Check for updates now",
-      desc: "Compares every tracked plugin against the newest release of its source. Only plugins you track are checked — track them in the Browse tab.",
+      desc: "Compares every tracked plugin against the newest release of its source. Only plugins you track are checked — track them under \"Browse catalogs\" below.",
     },
     checkUpdatesButton: "Check now",
     sectionUpdates: "Updates",
@@ -34,7 +34,7 @@ export const STRINGS = {
     openSettingsCommand: "Open settings",
   },
   notices: {
-    updatesAvailable: (n: number) => `${n} plugin update${n === 1 ? "" : "s"} available — open AnySource Sideloader`,
+    updatesAvailable: (n: number) => `${n} plugin update${n === 1 ? "" : "s"} available — see the AnySource Sideloader settings`,
     upToDate: "All sideloaded plugins are up to date.",
     installed: (name: string, v: string) => `Installed ${name} ${v}.`,
     updated: (name: string, v: string) => `Updated ${name} to ${v}.`,
@@ -46,7 +46,7 @@ export const STRINGS = {
     adoptFailed: (name: string, message: string) => `Could not track ${name}: ${message}`,
     nothingToAdopt: "No installed plugins from this catalog are untracked.",
     checking: "Checking for updates…",
-    nothingTracked: "No plugins are tracked yet — open AnySource Sideloader and track the installed ones in the Browse tab.",
+    nothingTracked: "No plugins are tracked yet — track your installed ones under \"Browse catalogs\" in these settings.",
   },
   confirm: {
     installTitle: (name: string) => `Install ${name}?`,
@@ -76,14 +76,13 @@ export const STRINGS = {
    *  die ist aufgeloest, die Texte leben jetzt im Settings-Tab. */
   store: {
     title: "AnySource Sideloader",
-    ribbonTooltip: "Open AnySource Sideloader",
-    openStoreCommand: "Open store",
+        openStoreCommand: "Open settings",
     checkUpdatesCommand: "Check for updates",
     tabBrowse: "Browse",
     tabInstalled: "Installed",
     tabUpdates: "Updates",
     searchPlaceholder: "Search name, description, or tag…",
-    noCatalogs: "No catalogs are configured yet. Add one in the plugin settings.",
+    noCatalogs: "No catalogs are configured yet. Add one under \"Catalogs\" below.",
     noCatalogEntries: (detail: string) => `No catalog could be loaded (${detail}).`,
     noMatches: "No plugins match this search.",
     byAuthor: (author: string) => `by ${author}`,
@@ -93,7 +92,7 @@ export const STRINGS = {
     check: "Check",
     reportIssue: "Report an issue",
     remove: "Remove",
-    noInstalled: "No plugins are sideloaded yet. Install one from the Browse tab or a URL in Settings.",
+    noInstalled: "No plugins are sideloaded yet. Install one from \"Browse catalogs\" below, or with the \"Install plugin from URL\" command.",
     updateAvailable: (v: string) => `Update available: ${v}`,
     upToDateStatus: "Up to date",
     checkFailedStatus: (message: string) => `Check failed: ${message}`,

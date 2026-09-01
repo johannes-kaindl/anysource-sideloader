@@ -12,6 +12,8 @@ export default class AnySourceSideloaderPlugin extends Plugin {
   settings: SideloaderSettings = DEFAULT_SETTINGS;
   secretStore: SecretStore = new MemorySecretStore();
   private http: HttpPort = obsidianHttp();
+  /** Referenz, um den Tab nach Ablaeufen ausserhalb der UI neu zeichnen zu lassen. */
+  private settingsTab: SideloaderSettingTab | null = null;
 
   async onload(): Promise<void> {
     this.settings = loadSettings(await this.loadData());
@@ -19,7 +21,8 @@ export default class AnySourceSideloaderPlugin extends Plugin {
     const hasKeychain = typeof (this.app as { secretStorage?: { getSecret?: unknown } }).secretStorage?.getSecret === "function";
     this.secretStore = hasKeychain ? obsidianSecretStore(this.app) : new MemorySecretStore();
     this.http = obsidianHttp();
-    this.addSettingTab(new SideloaderSettingTab(this.app, this));   // Task 12
+    this.settingsTab = new SideloaderSettingTab(this.app, this);
+    this.addSettingTab(this.settingsTab);
 
     // Kein eigener View mehr: Installation und Updates leben im Einstellungs-Tab — dem
     // Ort, an dem Obsidian Plugins ohnehin verwaltet. Das spart nicht nur eine Ansicht,
@@ -85,10 +88,14 @@ export default class AnySourceSideloaderPlugin extends Plugin {
 
   private async runCheckUpdatesCommand(): Promise<void> {
     await checkUpdatesWithNotices(this.flowContext());
+    // Der Befehl laeuft ausserhalb des Tabs; ohne diesen Anstoss zeigt ein offener Tab
+    // weiter den Stand von vor der Pruefung.
+    this.settingsTab?.aktualisieren();
   }
 
   private async runStartupCheck(): Promise<void> {
     const { results } = await checkAllUpdates(this.flowContext());
+    this.settingsTab?.aktualisieren();
     if (results.length > 0) new Notice(STRINGS.notices.updatesAvailable(results.length), 10000);
     // n === 0: bewusst still, keine Notice bei jedem Start (Brief: "n > 0 ? Notice : stumm").
   }

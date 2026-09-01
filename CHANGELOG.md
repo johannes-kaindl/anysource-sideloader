@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed — the store moved into the settings tab
+
+- **The sidebar view is gone.** Browsing catalogs, tracking installed plugins and applying
+  updates all happen in the plugin's settings tab now — where Obsidian manages plugins
+  anyway, and where BRAT and comparable plugins put it. The ribbon icon is removed; the
+  "Open settings" command opens the tab.
+- **Why this is more than a move:** the view carried its own card and row CSS, built beside
+  Obsidian's own building blocks instead of on them. One consequence was visible — catalog
+  titles used an `<h3>` with no size rule and rendered far too large in a sidebar. In the
+  settings tab, Obsidian's `Setting` API supplies layout and typography, so `styles.css`
+  shrank from 105 to ~30 lines and the whole class of problem is gone rather than patched.
+
+### Fixed
+
+- **The catalog cache survived a change of subscriptions** — removing a catalog left its
+  entries on screen.
+- **The on-disk state was only read when a catalog loaded** — installing a plugin outside
+  this one (BRAT, by hand) left the entry showing "Install".
+- **"Check now" did not refresh an open settings tab** — you pressed it, got a notice, and
+  the list still showed the old state.
+
 ## [0.2.1] — 2026-09-01
 
 ### Fixed
