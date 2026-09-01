@@ -8,4 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ## 0.0.1
 
-- Initial scaffold.
+- Forge adapters for GitHub, Forgejo/Gitea, and plain raw-file sources, with
+  auto-detection from a pasted repo URL.
+- Subscribable plugin catalogs (a single JSON list of plugins, refreshed together).
+- Per-host access tokens stored in Obsidian's keychain, for private repos and catalogs.
+- Checksum verification (`checksums.sha256`) of downloaded release assets before install.
+- Store view (Browse/Installed/Updates) plus manual and startup update checks.

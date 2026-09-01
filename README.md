@@ -31,8 +31,12 @@ sideloaded plugin — no manual copying needed after the bootstrap.
 Add a source by pasting a repo URL (e.g. `https://github.com/user/repo`,
 `https://git.jkaindl.de/jkaindl/some-plugin`, or a Gitea instance URL). The forge is
 auto-detected from the URL shape — GitHub, Forgejo, and Gitea each expose a slightly
-different release/asset API, and the plugin picks the right adapter automatically. A
-plain raw URL to a release asset works too, for forges without API support.
+different release/asset API, and the plugin picks the right adapter automatically. For a
+forge without a Gitea-compatible API, the plugin falls back to raw files instead: it
+still takes a **repo URL** (not a direct asset URL), and derives
+`<base>/<owner>/<repo>/raw/main/<file>` for each of `manifest.json`, `main.js`, and
+`styles.css` — there is no branch or tag selection yet, so this fallback only works
+against the repo's default branch, and only if it is named `main`.
 
 ## Catalogs
 
@@ -84,3 +88,22 @@ No screenshots yet — a follow-up pass will add them via the `readme-shots` wor
   GitHub repo. Private **Forgejo/Gitea** sources, by contrast, are fully supported and are
   proven end-to-end (private repo + token, detect → latest release → asset download) in
   `tests/integration/live-forge.test.ts`.
+- **Checksums prove transport integrity only, not authenticity.** A `checksums.sha256`
+  file is fetched from the same forge as the payload it verifies, and is not signed. It
+  catches corruption and accidental mismatch; it does **not** catch a compromised forge
+  that ships matching sums for a tampered release.
+- **Installing a plugin runs third-party code with full Obsidian API access.** The
+  install/update confirm dialog is the only gate — there is no sandboxing, permission
+  model, or code review beyond what you do yourself before confirming.
+- **The raw fallback assumes the default branch is named `main`.** There is no branch or
+  tag selection yet; a repo whose default branch has a different name cannot be installed
+  via the raw path (see "Adding sources" above).
+- **Plugin ids are restricted to `^[a-z0-9][a-z0-9-_]{0,63}$`**, which is stricter than
+  Obsidian itself — no uppercase letters and no dots. A manifest with an otherwise valid
+  but non-matching id is rejected.
+- **A fully private Forgejo/Gitea instance can be misdetected as a raw source.**
+  Forge detection probes `/api/v1/version` without sending a token; on an instance that
+  gates that endpoint behind authentication, the probe looks like "no Gitea API here" and
+  the plugin falls back to raw files, which then also fail without a token.
+- **Release notes render remote Markdown**, including any images it embeds — opening the
+  release notes for a plugin loads images from that plugin's own source.

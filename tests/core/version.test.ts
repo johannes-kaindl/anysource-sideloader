@@ -6,6 +6,11 @@ it("normalizeVersion strippt v-Praefix und Whitespace", () => {
   expect(normalizeVersion("0.19.0")).toBe("0.19.0");
 });
 
+it("normalizeVersion strippt nur ein 'v' vor einer Ziffer, nicht als Wortanfang (M13)", () => {
+  expect(normalizeVersion("version-1.2")).toBe("version-1.2");
+  expect(normalizeVersion("v2.0.0")).toBe("2.0.0");
+});
+
 describe("compareVersions", () => {
   it("vergleicht numerisch je Segment (nicht lexikografisch)", () => {
     expect(compareVersions("0.10.0", "0.9.1")).toBeGreaterThan(0);

@@ -46,6 +46,14 @@ export async function writePluginFiles(
   const dir = pluginDir(configDir, fetched.manifest.id);
   await port.mkdir(dir);
   for (const file of fetched.files) {
+    // Task M11: `fetched.files` traegt Namen, wie sie im Release-Asset stehen — ohne
+    // Allowlist koennte ein Release ausserhalb der drei Code-Dateien z.B. einen
+    // Pfad-Traversal-Namen (`../../…`) einschleusen und ausserhalb des Plugin-Ordners
+    // schreiben. `fetchPluginFiles` laedt heute nur main.js/manifest.json/styles.css,
+    // aber der Schreib-Pfad verlaesst sich hier nicht darauf, sondern erzwingt es selbst.
+    if (!CODE_FILES.includes(file.name)) {
+      throw new Error(`Unerwarteter Dateiname im Release, wird nicht geschrieben: ${file.name}`);
+    }
     await port.writeBinary(`${dir}/${file.name}`, file.data);
   }
   return dir;

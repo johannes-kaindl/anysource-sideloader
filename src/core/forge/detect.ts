@@ -1,5 +1,3 @@
-import "./types";
-
 export function parseRepoUrl(input: string): { baseUrl: string; owner: string; repo: string } | null {
   const trimmed = input.trim().replace(/\/+$/, "");
   let url: URL;

@@ -61,4 +61,13 @@ describe("installer", () => {
     expect(port.files.size).toBe(0);
     expect(port.dirs.size).toBe(0);
   });
+
+  it("writePluginFiles verweigert Dateien ausserhalb der Code-Allowlist (M11)", async () => {
+    const port = memPort();
+    const smuggled = {
+      ...FETCHED,
+      files: [...FETCHED.files, { name: "../../evil.js", data: new TextEncoder().encode("x").buffer as ArrayBuffer }],
+    };
+    await expect(writePluginFiles(port, ".obsidian", smuggled)).rejects.toThrow(/evil\.js/);
+  });
 });

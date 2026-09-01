@@ -1,5 +1,7 @@
 export function normalizeVersion(tagOrVersion: string): string {
-  return tagOrVersion.trim().replace(/^v/, "");
+  // Task M13: nur ein fuehrendes "v" VOR einer Ziffer ist ein Tag-Praefix (v1.2.3). Ohne
+  // das Lookahead wuerde z.B. "version-1.2" zu "ersion-1.2" verstuemmelt.
+  return tagOrVersion.trim().replace(/^v(?=\d)/, "");
 }
 
 export function compareVersions(a: string, b: string): number {
