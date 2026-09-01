@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- GUI smoke driver (`npm run smoke:gui`) that runs the checklist in `docs/SMOKE.md`
+  against a **running** Obsidian over CDP — 36 checks across store view, hub tabs, empty
+  states, catalog install/update/remove, install-from-URL, settings, and transport
+  (CORE-TEST-02 b). Its network counterpart is local (`scripts/forge-server.ts`, three
+  HTTP servers on 127.0.0.1), so the run needs neither network nor a token, and it can
+  produce the two redirects a real forge cannot be asked for.
+
+### Fixed / documented
+
+- **Known limitation added:** catalogs and access tokens cannot be managed on Obsidian
+  1.13 — both settings render as empty rows. Found by the first smoke run; a fix is
+  tracked.
+- **Known limitation sharpened from guess to measurement:** `requestUrl` forwards the
+  `Authorization` header across a redirect to a different host (measured for 302 and 303).
+  This is the transport half of why private GitHub sources stay experimental.
+
 ## [0.1.0] — 2026-09-01
 
 First public release.

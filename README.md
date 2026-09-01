@@ -85,12 +85,22 @@ No screenshots yet — a follow-up pass will add them via the `readme-shots` wor
 
 ## Known limitations
 
-- **Private GitHub sources are experimental.** Fetching releases/assets from a private
-  GitHub repo with a token was not cleanly measurable with the currently available test
-  account (flagged), so this path has not been proven end-to-end against a real private
-  GitHub repo. Private **Forgejo/Gitea** sources, by contrast, are fully supported and are
-  proven end-to-end (private repo + token, detect → latest release → asset download) in
-  `tests/integration/live-forge.test.ts`.
+- **Private GitHub sources are experimental — and one half of why is now measured.**
+  Obsidian's `requestUrl` **forwards the `Authorization` header across a redirect to a
+  different host** (measured 2026-09-01 on Obsidian 1.13.7 against a local server, for both
+  302 and 303, 4/4 requests; Node's `fetch` strips it on the same setup). Private GitHub
+  asset downloads go through exactly such a redirect — the API asset URL answers 302 with a
+  pre-signed S3 URL — so the bearer token is sent on to S3, which typically rejects requests
+  carrying two authentication mechanisms. What is **not** measured is that second half: how
+  S3 actually answers. That still needs a real private GitHub repo, which the currently
+  available test account (flagged) could not provide. Private **Forgejo/Gitea** sources, by
+  contrast, are fully supported and proven end-to-end (private repo + token, detect → latest
+  release → asset download) in `tests/integration/live-forge.test.ts`.
+- **Catalogs and access tokens cannot be managed on Obsidian 1.13.** Both settings render
+  as empty rows there — name and description, no controls — so neither catalog subscriptions
+  nor per-host tokens can be edited from the settings tab. The pre-subscribed default catalog
+  and "Install plugin from URL" still work. Found by the GUI smoke (`docs/SMOKE.md`, E2/E3);
+  a fix is tracked.
 - **Checksums prove transport integrity only, not authenticity.** A `checksums.sha256`
   file is fetched from the same forge as the payload it verifies, and is not signed. It
   catches corruption and accidental mismatch; it does **not** catch a compromised forge
