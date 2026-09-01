@@ -178,10 +178,14 @@ class InstalledPanel implements HubPanel<TabId> {
     }
 
     const port = adapterFilePort(this.ctx.app);
+    // Manifest-Reads sind unabhaengig voneinander — parallel statt sequenziell im Loop,
+    // Reihenfolge bleibt stabil weil Promise.all die Eingabereihenfolge erhaelt.
+    const manifests = await Promise.all(
+      plugins.map((plugin) => readInstalledManifest(port, this.ctx.app.vault.configDir, plugin.id)),
+    );
     const list = root.createDiv({ cls: "asl-list" });
-    for (const plugin of plugins) {
-      const manifest = await readInstalledManifest(port, this.ctx.app.vault.configDir, plugin.id);
-      const displayName = manifest?.name ?? plugin.id;
+    plugins.forEach((plugin, i) => {
+      const displayName = manifests[i]?.name ?? plugin.id;
       const row = list.createDiv({ cls: "asl-row" });
       row.createDiv({ cls: "asl-row-name", text: displayName });
       row.createDiv({ cls: "asl-row-version", text: plugin.installedVersion });
@@ -210,14 +214,16 @@ class InstalledPanel implements HubPanel<TabId> {
       });
 
       const issueBtn = actions.createEl("button", { text: STRINGS.view.reportIssue });
-      issueBtn.addEventListener("click", () => { window.open(issuesUrlFor(plugin.ref)); });
+      issueBtn.addEventListener("click", () => {
+        window.open(issuesUrlFor(plugin.ref), "_blank", "noopener,noreferrer");
+      });
 
       const removeBtn = actions.createEl("button", { cls: "mod-warning", text: STRINGS.view.remove });
       removeBtn.addEventListener("click", () => {
         removeBtn.disabled = true;
         void removeInstalled(this.ctx, plugin.id).finally(() => { void this.render(); });
       });
-    }
+    });
   }
 }
 
@@ -251,10 +257,14 @@ class UpdatesPanel implements HubPanel<TabId> {
     }
 
     const port = adapterFilePort(this.ctx.app);
+    // Manifest-Reads sind unabhaengig voneinander — parallel statt sequenziell im Loop,
+    // Reihenfolge bleibt stabil weil Promise.all die Eingabereihenfolge erhaelt.
+    const manifests = await Promise.all(
+      pending.map((plugin) => readInstalledManifest(port, this.ctx.app.vault.configDir, plugin.id)),
+    );
     const list = root.createDiv({ cls: "asl-list" });
-    for (const plugin of pending) {
-      const manifest = await readInstalledManifest(port, this.ctx.app.vault.configDir, plugin.id);
-      const displayName = manifest?.name ?? plugin.id;
+    pending.forEach((plugin, i) => {
+      const displayName = manifests[i]?.name ?? plugin.id;
       const row = list.createDiv({ cls: "asl-row" });
       row.createDiv({ cls: "asl-row-name", text: displayName });
       row.createDiv({
@@ -274,7 +284,7 @@ class UpdatesPanel implements HubPanel<TabId> {
           void this.render();
         });
       });
-    }
+    });
   }
 }
 
