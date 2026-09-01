@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-09-01
+
 ### Fixed
 
 - **Clicking "Check now" in the settings froze the whole app.** Not just the settings
