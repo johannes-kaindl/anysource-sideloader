@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-09-01
+
 ### Fixed
 
 - **A raw source on a `master` repository was unreachable.** The default branch was
