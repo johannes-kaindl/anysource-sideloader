@@ -19,6 +19,7 @@ import {
 } from "./flows";
 import { adapterFilePort, readInstalledManifest } from "./installer";
 import { ReleaseNotesModal } from "./release-notes-modal";
+import { resolveHostToken } from "./tokens";
 
 export const VIEW_TYPE_SIDELOADER = "anysource-sideloader";
 
@@ -92,7 +93,13 @@ class BrowsePanel implements HubPanel<TabId> {
     const errors: string[] = [];
     for (const url of this.ctx.settings.catalogs) {
       try {
-        const res = await this.ctx.http({ url });
+        // Task I3: Kataloge leben auf Forges, genau wie die Plugin-Quellen selbst — ohne
+        // Token bleibt ein privater Katalog unlesbar. Derselbe Host->Token-Lookup wie in
+        // flows.ts (`resolveHostToken`), derselbe gitea-style Header wie ein Gitea-Asset
+        // (der Katalog-Host ist typischerweise dieselbe Forge-Instanz).
+        const host = new URL(url).host;
+        const token = resolveHostToken(this.ctx.settings, this.ctx.secretStore, host);
+        const res = await this.ctx.http({ url, headers: gitea.authHeaders(token) });
         if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
         entries.push(...parseCatalog(res.text).plugins);
       } catch (err) {
@@ -137,7 +144,10 @@ class BrowsePanel implements HubPanel<TabId> {
     const btn = actions.createEl("button", { cls: "mod-cta", text: STRINGS.view.install });
     btn.addEventListener("click", () => {
       btn.disabled = true;
-      void installFromUrl(this.ctx, entry.repo).finally(() => {
+      // Task M18: der Katalog kennt die id schon — weicht die tatsaechlich gelieferte id
+      // ab (kompromittierte/verwechselte Quelle), bricht installFromUrl VOR jedem
+      // Schreiben ab, statt ein unerwartetes Plugin unter der Katalog-id zu installieren.
+      void installFromUrl(this.ctx, entry.repo, entry.id).finally(() => {
         btn.disabled = false;
         void this.render();
       });

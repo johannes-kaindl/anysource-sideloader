@@ -44,6 +44,22 @@ it("fetchLatestRelease (raw): 404 auf manifest.json wirft sprechenden Fehler sta
   ).rejects.toThrow(/manifest\.json/);
 });
 
+it("fetchLatestRelease (github): non-200 wirft sprechenden Fehler statt 'tag_name fehlt' (I6)", async () => {
+  const http = fakeHttp({ "https://api.github.com/repos/o/r/releases/latest": { status: 401, text: "" } });
+  await expect(
+    fetchLatestRelease(http, { kind: "github", baseUrl: "https://github.com", owner: "o", repo: "r" }, null),
+  ).rejects.toThrow(/401/);
+});
+
+it("fetchLatestRelease (gitea): non-200 wirft sprechenden Fehler statt 'tag_name fehlt' (I6)", async () => {
+  const http = fakeHttp({
+    "https://git.example.com/api/v1/repos/o/r/releases/latest": { status: 403, text: "" },
+  });
+  await expect(
+    fetchLatestRelease(http, { kind: "gitea", baseUrl: "https://git.example.com", owner: "o", repo: "r" }, null),
+  ).rejects.toThrow(/403/);
+});
+
 it("fetchLatestRelease nutzt den passenden Adapter", async () => {
   const http = fakeHttp({
     "https://git.jkaindl.de/api/v1/repos/jkaindl/calendar-notes/releases/latest": { text: GITEA_FIXTURE },
@@ -86,5 +102,25 @@ describe("fetchPluginFiles", () => {
       "https://x/dl/c": { text: "0".repeat(64) + "  main.js\n" },
     });
     expect((await fetchPluginFiles(http, REF, rel, null)).checksums).toBe("mismatch");
+  });
+
+  it("I5: schickt den Auth-Header NICHT an ein Asset mit fremdem Host (nur an ref.baseUrl-Host)", async () => {
+    const seenHeaders: Record<string, Record<string, string> | undefined> = {};
+    const http = async (req: { url: string; headers?: Record<string, string> }) => {
+      seenHeaders[req.url] = req.headers;
+      const text = req.url.endsWith("manifest.json") ? MANIFEST : "console.log(1)";
+      const bytes = new TextEncoder().encode(text);
+      return { status: 200, text, arrayBuffer: bytes.buffer as ArrayBuffer };
+    };
+    const rel = {
+      ...REL,
+      assets: [
+        { name: "main.js", downloadUrl: "https://cdn.foreign.example/main.js" },
+        { name: "manifest.json", downloadUrl: "https://x/dl/manifest.json" },
+      ],
+    };
+    await fetchPluginFiles(http, REF, rel, "secret-token");
+    expect(seenHeaders["https://cdn.foreign.example/main.js"]).toEqual({});
+    expect(seenHeaders["https://x/dl/manifest.json"]).toEqual({ Authorization: "token secret-token" });
   });
 });

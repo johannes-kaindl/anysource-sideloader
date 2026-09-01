@@ -4,12 +4,14 @@
 import { Notice, type App } from "obsidian";
 import { confirmAction } from "../vendor/kit-obsidian/confirm";
 import { detectForge, fetchLatestRelease, fetchPluginFiles, type FetchedPlugin } from "../core/source";
+import { pluginDir } from "../core/install";
 import type { HttpPort, ReleaseInfo, RepoRef } from "../core/forge/types";
 import type { ManagedPlugin, SideloaderSettings } from "../core/settings";
 import { planUpdates, type UpdateCheckResult } from "../core/plan";
 import { isNewer } from "../core/version";
 import { STRINGS } from "../i18n/strings";
 import type { SecretStore } from "./secrets";
+import { resolveHostToken } from "./tokens";
 import { adapterFilePort, enablePlugin, reloadIfEnabled, removePlugin, writePluginFiles } from "./installer";
 
 /** Alles, was ein Use-Case braucht — vom Host (`main.ts`/`store-view.ts`) einmal gebaut
@@ -27,9 +29,7 @@ export interface FlowContext {
 /** host -> hostSecrets-Eintrag -> Schluesselbund. Kein Eintrag oder kein gespeicherter
  *  Wert heisst: unauthentifiziert anfragen (oeffentliche Repos/Kataloge). */
 function resolveToken(ctx: FlowContext, ref: RepoRef): string | null {
-  const host = new URL(ref.baseUrl).host;
-  const secretId = ctx.settings.hostSecrets[host];
-  return secretId ? ctx.secretStore.get(secretId) : null;
+  return resolveHostToken(ctx.settings, ctx.secretStore, new URL(ref.baseUrl).host);
 }
 
 function excerpt(notes: string, maxLen = 240): string {
@@ -50,9 +50,17 @@ function sourceLine(ref: RepoRef): string {
 
 async function confirmChecksumAwareInstall(
   ctx: FlowContext,
-  opts: { title: string; confirmLabel: string; ref: RepoRef; version: string; notes: string; checksums: FetchedPlugin["checksums"] },
+  opts: {
+    title: string;
+    confirmLabel: string;
+    id: string;
+    ref: RepoRef;
+    version: string;
+    notes: string;
+    checksums: FetchedPlugin["checksums"];
+  },
 ): Promise<boolean> {
-  const message = [sourceLine(opts.ref), `Version: ${opts.version}`];
+  const message = [sourceLine(opts.ref), `ID: ${opts.id}`, `Version: ${opts.version}`];
   const notes = excerpt(opts.notes);
   if (notes) message.push(notes);
   if (opts.checksums === "absent") message.push(STRINGS.confirm.checksumAbsent);
@@ -65,18 +73,24 @@ async function confirmChecksumAwareInstall(
   });
 }
 
-/** installFromUrl: detectForge -> (raw+http: Zusatz-Confirm) -> fetchLatestRelease ->
- *  fetchPluginFiles -> Checksum-Verdikt ("mismatch" bricht VOR jedem Schreiben ab,
- *  "absent" bekommt eine Zusatzzeile im Confirm) -> confirmAction Install -> Schreiben ->
- *  ManagedPlugin upsert + saveSettings -> confirmAction "jetzt aktivieren?". */
-export async function installFromUrl(ctx: FlowContext, url: string): Promise<void> {
+/** installFromUrl: detectForge -> (http(s) egal welcher Art: Zusatz-Confirm, Task I4) ->
+ *  fetchLatestRelease -> fetchPluginFiles -> optionaler id-Abgleich gegen einen Katalog-
+ *  Eintrag (`expectedId`, Task M18) -> Checksum-Verdikt ("mismatch" bricht VOR jedem
+ *  Schreiben ab, "absent" bekommt eine Zusatzzeile im Confirm) -> Overwrite-Guard (Task
+ *  C2: ein bereits belegter, aber NICHT verwalteter Plugin-Ordner verlangt ein zweites,
+ *  destruktiv markiertes Confirm, das die id nennt) -> confirmAction Install -> Schreiben
+ *  -> ManagedPlugin upsert + saveSettings -> confirmAction "jetzt aktivieren?".
+ *  `expectedId` kommt von einem Katalog-Card-Klick, der die id schon kennt — weicht die
+ *  tatsaechlich gelieferte id ab, bricht der Flow VOR jedem Schreiben mit einer Notice ab
+ *  (derselbe idChanged-Text wie beim Update-Pfad). */
+export async function installFromUrl(ctx: FlowContext, url: string, expectedId?: string): Promise<void> {
   const ref = await detectForge(ctx.http, url);
   if (!ref) {
     new Notice(STRINGS.notices.invalidSource);
     return;
   }
 
-  if (ref.kind === "raw" && new URL(ref.baseUrl).protocol === "http:") {
+  if (new URL(ref.baseUrl).protocol === "http:") {
     const proceed = await confirmAction(ctx.app, {
       message: [STRINGS.confirm.httpSource],
       confirmLabel: STRINGS.confirm.install,
@@ -90,14 +104,40 @@ export async function installFromUrl(ctx: FlowContext, url: string): Promise<voi
   const release = await fetchLatestRelease(ctx.http, ref, token);
   const fetched = await fetchPluginFiles(ctx.http, ref, release, token);
 
+  if (expectedId && fetched.manifest.id !== expectedId) {
+    new Notice(STRINGS.confirm.idChanged(expectedId, fetched.manifest.id));
+    return;
+  }
+
   if (fetched.checksums === "mismatch") {
     new Notice(STRINGS.notices.checksumMismatch);
     return;
   }
 
+  const port = adapterFilePort(ctx.app);
+  const dir = pluginDir(ctx.app.vault.configDir, fetched.manifest.id);
+  const dirExists = await port.exists(dir);
+  const isKnownPlugin = ctx.settings.plugins.some((p) => p.id === fetched.manifest.id);
+  if (dirExists && !isKnownPlugin) {
+    // Ein Plugin-Ordner mit dieser id existiert bereits, ist aber keinem ManagedPlugin
+    // zugeordnet — er gehoert also entweder einem manuell installierten Plugin oder einem
+    // frueheren Sideload, das nicht (mehr) in settings.plugins steht. Ein normales Install
+    // wuerde ihn stillschweigend ueberschreiben (Task C2); das verlangt ein eigenes,
+    // destruktiv markiertes Confirm, das die id nennt.
+    const proceedOverwrite = await confirmAction(ctx.app, {
+      title: STRINGS.confirm.overwriteTitle(fetched.manifest.id),
+      message: [STRINGS.confirm.overwriteWarning(fetched.manifest.id)],
+      confirmLabel: STRINGS.confirm.install,
+      cancelLabel: STRINGS.confirm.cancel,
+      warning: true,
+    });
+    if (!proceedOverwrite) return;
+  }
+
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.installTitle(fetched.manifest.name),
     confirmLabel: STRINGS.confirm.install,
+    id: fetched.manifest.id,
     ref,
     version: fetched.manifest.version,
     notes: fetched.release.notes,
@@ -105,7 +145,6 @@ export async function installFromUrl(ctx: FlowContext, url: string): Promise<voi
   });
   if (!confirmed) return;
 
-  const port = adapterFilePort(ctx.app);
   await writePluginFiles(port, ctx.app.vault.configDir, fetched);
 
   upsertManagedPlugin(ctx.settings, {
@@ -216,6 +255,7 @@ export async function applyUpdate(ctx: FlowContext, id: string): Promise<void> {
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.updateTitle(fetched.manifest.name, plugin.installedVersion, fetched.manifest.version),
     confirmLabel: STRINGS.confirm.update,
+    id: fetched.manifest.id,
     ref: plugin.ref,
     version: fetched.manifest.version,
     notes: fetched.release.notes,

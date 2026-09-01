@@ -42,6 +42,15 @@ export const STRINGS = {
     removeTitle: (id: string) => `Remove "${id}"?`,
     removeMessage: "This deletes the plugin's files from this vault. Its stored data (data.json) is kept.",
     remove: "Remove",
+    overwriteTitle: (id: string) => `Overwrite existing plugin "${id}"?`,
+    overwriteWarning: (id: string) =>
+      `A plugin folder for id "${id}" already exists but is not tracked by AnySource Sideloader as one of its installs. Continuing will overwrite it with the files from this source.`,
+  },
+  installUrl: {
+    commandName: "Install plugin from URL",
+    title: "Install plugin from URL",
+    placeholder: "https://github.com/owner/repo",
+    submit: "Install",
   },
   releaseNotes: {
     empty: "This release has no notes.",

@@ -38,11 +38,19 @@ export async function fetchLatestRelease(
   token: string | null,
 ): Promise<ReleaseInfo> {
   if (ref.kind === "github") {
-    const res = await http({ url: gh.latestReleaseUrl(ref), headers: gh.apiHeaders(token) });
+    const releaseUrl = gh.latestReleaseUrl(ref);
+    const res = await http({ url: releaseUrl, headers: gh.apiHeaders(token) });
+    if (res.status !== 200) {
+      throw new Error(`Download fehlgeschlagen fuer GitHub-Release (${releaseUrl}): HTTP ${res.status}`);
+    }
     return gh.parseGithubRelease(res.text);
   }
   if (ref.kind === "gitea") {
-    const res = await http({ url: gitea.latestReleaseUrl(ref), headers: gitea.authHeaders(token) });
+    const releaseUrl = gitea.latestReleaseUrl(ref);
+    const res = await http({ url: releaseUrl, headers: gitea.authHeaders(token) });
+    if (res.status !== 200) {
+      throw new Error(`Download fehlgeschlagen fuer Gitea-Release (${releaseUrl}): HTTP ${res.status}`);
+    }
     return gitea.parseGiteaRelease(res.text);
   }
   // raw: kein Release-Endpunkt — Manifest direkt vom Default-Branch laden und ein
@@ -79,9 +87,16 @@ export interface FetchedPlugin {
   release: ReleaseInfo;
 }
 
+/** Task I5: Auth-Header duerfen nur an den Host gehen, den `ref.baseUrl` (also der
+ *  Token-Scope aus den Settings) tatsaechlich meint. Bei github ist das bereits durch
+ *  `gh.assetRequest` sichergestellt (api.github.com-Paar, Redirect auf S3 bekommt nie den
+ *  Header). Bei gitea/raw kann `asset.downloadUrl` aber auf einen VOELLIG anderen Host
+ *  zeigen (z.B. ein CDN oder Mirror in den Release-Metadaten) — ein Token wuerde dann an
+ *  eine fremde Antwort-Body-URL geschickt, nicht an die Forge, die es ausgestellt hat. */
 function buildAssetRequest(ref: RepoRef, asset: AssetRef, token: string | null): HttpRequest {
   if (ref.kind === "github") return gh.assetRequest(asset, token);
-  return { url: asset.downloadUrl, headers: gitea.authHeaders(token) };
+  const sameHost = new URL(asset.downloadUrl).host === new URL(ref.baseUrl).host;
+  return { url: asset.downloadUrl, headers: sameHost ? gitea.authHeaders(token) : {} };
 }
 
 const VERDICT_RANK: Record<ChecksumVerdict, number> = { ok: 0, absent: 1, mismatch: 2 };
