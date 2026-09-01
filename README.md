@@ -1,5 +1,8 @@
 # AnySource Sideloader
 
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B%20%C2%B7%20desktop%20%26%20mobile-7c3aed)
+
 Install and update Obsidian plugins from any git forge — GitHub, Forgejo, Gitea, or raw
 URLs — including subscribable plugin catalogs, without waiting on the Community Store.
 
@@ -107,3 +110,9 @@ No screenshots yet — a follow-up pass will add them via the `readme-shots` wor
   the plugin falls back to raw files, which then also fail without a token.
 - **Release notes render remote Markdown**, including any images it embeds — opening the
   release notes for a plugin loads images from that plugin's own source.
+
+## License
+
+- **Code:** AGPL-3.0-or-later ([`LICENSE`](LICENSE)).
+- **No runtime dependencies.** Vendored build/test helpers from the author's own
+  `obsidian-kit`/`code-kit` carry their provenance headers in `src/vendor/`.
