@@ -3,8 +3,9 @@ import { DEFAULT_SETTINGS, loadSettings, type SideloaderSettings } from "./core/
 import { obsidianSecretStore, MemorySecretStore, type SecretStore } from "./obsidian/secrets";
 import { SideloaderSettingTab } from "./obsidian/settings-tab";
 import { obsidianHttp } from "./obsidian/http";
-import { checkAllUpdates, type FlowContext } from "./obsidian/flows";
+import { checkAllUpdates, installFromUrl, type FlowContext } from "./obsidian/flows";
 import { StoreView, VIEW_TYPE_SIDELOADER } from "./obsidian/store-view";
+import { InstallUrlModal } from "./obsidian/install-url-modal";
 import { STRINGS } from "./i18n/strings";
 import type { HttpPort } from "./core/forge/types";
 
@@ -33,12 +34,25 @@ export default class AnySourceSideloaderPlugin extends Plugin {
       name: STRINGS.view.checkUpdatesCommand,
       callback: () => { void this.runCheckUpdatesCommand(); },
     });
+    // Task C1: "Install from URL" war dokumentiert, hatte aber keine Bedienung — ein
+    // Command statt eines eigenen Ribbon-Icons (das bestehende Ribbon-Icon oeffnet die
+    // Store-View, nicht diesen Pfad; beide sind unabhaengige Einstiege).
+    this.addCommand({
+      id: "install-from-url",
+      name: STRINGS.installUrl.commandName,
+      callback: () => {
+        new InstallUrlModal(this.app, (url) => { void installFromUrl(this.flowContext(), url); }).open();
+      },
+    });
 
     if (this.settings.checkOnStartup) {
       this.app.workspace.onLayoutReady(() => {
         // Nach dem Layout, nicht im Ladepfad: ein Netzwerk-Roundtrip fuer jede Quelle
-        // darf onload() nicht blockieren oder verzoegern.
-        window.setTimeout(() => { void this.runStartupCheck(); }, 5000);
+        // darf onload() nicht blockieren oder verzoegern. this.register() raeumt den Timer
+        // beim Unload auf (Task M12) — sonst feuert er auf einen bereits entladenen Plugin-
+        // Kontext, falls Obsidian zwischen onLayoutReady und den 5s deaktiviert/neu laedt.
+        const timer = window.setTimeout(() => { void this.runStartupCheck(); }, 5000);
+        this.register(() => window.clearTimeout(timer));
       });
     }
   }
