@@ -1,0 +1,114 @@
+import { describe, expect, it } from "vitest";
+import { Setting } from "obsidian";
+import { SideloaderSettingTab, normalizeHost, type SettingsHost } from "../../src/obsidian/settings-tab";
+import { DEFAULT_SETTINGS, type SideloaderSettings } from "../../src/core/settings";
+import { MemorySecretStore } from "../../src/obsidian/secrets";
+
+/**
+ * Diese Datei sichert die **Struktur**, die der Fix vom 2026-09-01 hergestellt hat — und
+ * damit genau den Rückweg in den Defekt.
+ *
+ * Der Defekt war: Kataloge und Token-Hosts wurden aus **einer** `render`-Hatch heraus als
+ * mehrere Zeilen gebaut. Im nativen Obsidian-1.13-Pfad überlebt das nicht (gemessen: eine
+ * Hatch darf nur ihre eigene Zeile befüllen; Zusatzzeilen verschwinden lautlos), und die
+ * beiden Einstellungen waren dort **unbedienbar**. Seitdem ist jede Zeile eine eigene
+ * Definition in einer Gruppe.
+ *
+ * ⚠️ **Was dieser Test NICHT kann:** beweisen, dass Obsidian die Definitionen auch
+ * zeichnet. Das ist die Naht zum Host und gehört dem GUI-Smoke (`docs/SMOKE.md`, E2–E5) —
+ * er ist die inhaltliche Hälfte zu dieser strukturellen. Ein grüner Test hier hat den
+ * Defekt nicht bemerkt und hätte ihn auch nicht bemerken können; deshalb steht die
+ * Arbeitsteilung hier ausdrücklich und nicht nur im Commit.
+ */
+
+function host(settings: Partial<SideloaderSettings> = {}): SettingsHost {
+  const merged: SideloaderSettings = {
+    ...DEFAULT_SETTINGS,
+    plugins: [],
+    catalogs: [],
+    hostSecrets: {},
+    ...settings,
+  };
+  return {
+    settings: merged,
+    secretStore: new MemorySecretStore(),
+    saveSettings: async () => {},
+  } as unknown as SettingsHost;
+}
+
+function tabFor(settings: Partial<SideloaderSettings> = {}): SideloaderSettingTab {
+  const h = host(settings);
+  return new SideloaderSettingTab({} as never, h);
+}
+
+interface Gruppe {
+  type?: string;
+  heading?: string;
+  items?: unknown[];
+}
+
+function gruppen(tab: SideloaderSettingTab): Gruppe[] {
+  return tab
+    .getSettingDefinitions()
+    .map((d) => d as unknown as Gruppe)
+    .filter((d) => d.type === "group");
+}
+
+describe("normalizeHost", () => {
+  it("reduziert eine Repo-URL auf host[:port]", () => {
+    expect(normalizeHost(" https://git.example.com/owner/repo ")).toBe("git.example.com");
+    expect(normalizeHost("http://127.0.0.1:4711/a/b")).toBe("127.0.0.1:4711");
+    expect(normalizeHost("git.example.com")).toBe("git.example.com");
+  });
+});
+
+describe("getSettingDefinitions — Struktur", () => {
+  it("Kataloge und Tokens sind Gruppen, nicht je eine render-Hatch", () => {
+    const g = gruppen(tabFor());
+    expect(g.map((x) => x.heading)).toEqual(["Catalogs", "Access tokens"]);
+  });
+
+  it("KEINE Top-Level-Definition zeichnet eine Liste über eine render-Hatch", () => {
+    // Der Rückweg in den Defekt: eine `render`-Hatch neben (statt in) einer Gruppe.
+    // Der Toggle bleibt erlaubt — er ist `control`, keine Hatch.
+    const oberste = tabFor({ catalogs: ["a", "b"] }).getSettingDefinitions();
+    const mitHatch = oberste.filter((d) => typeof (d as { render?: unknown }).render === "function");
+    expect(mitHatch).toHaveLength(0);
+  });
+
+  it("jeder Katalog bekommt eine eigene Zeile — plus Beschreibung und Add-Zeile", () => {
+    const ohne = gruppen(tabFor({ catalogs: [] }))[0];
+    const mitZwei = gruppen(tabFor({ catalogs: ["https://a/c.json", "https://b/c.json"] }))[0];
+    // Beschreibung + Add-Zeile = 2 Grundzeilen; je Katalog kommt genau eine dazu.
+    expect(ohne?.items).toHaveLength(2);
+    expect(mitZwei?.items).toHaveLength(4);
+  });
+
+  it("jeder Token-Host bekommt eine eigene Zeile — plus Beschreibung und Add-Zeile", () => {
+    const ohne = gruppen(tabFor({ hostSecrets: {} }))[1];
+    const mitZwei = gruppen(tabFor({ hostSecrets: { "a.example": "id-a", "b.example": "id-b" } }))[1];
+    expect(ohne?.items).toHaveLength(2);
+    expect(mitZwei?.items).toHaveLength(4);
+  });
+
+  it("die Erklärtexte überleben den Umbau (UI-STANDARD §10)", () => {
+    const [kataloge, tokens] = gruppen(tabFor());
+    const desc = (g: Gruppe | undefined): string =>
+      String((g?.items?.[0] as { desc?: unknown } | undefined)?.desc ?? "");
+    expect(desc(kataloge)).toContain("A catalog is a JSON list of plugins");
+    expect(desc(tokens)).toContain("stored in the Obsidian keychain");
+  });
+
+  it("eine Zeilen-Hatch befüllt genau ihre eigene Zeile", () => {
+    // Die Zusicherung, an der der Defekt hing: die Hatch baut in das übergebene `Setting`
+    // und nicht daneben. Gemessen wird, dass danach Komponenten IN dieser Zeile hängen.
+    const gruppe = gruppen(tabFor({ catalogs: ["https://a/c.json"] }))[0];
+    const zeile = gruppe?.items?.[1] as { render?: (s: Setting) => void } | undefined;
+    expect(typeof zeile?.render).toBe("function");
+
+    const setting = new Setting(undefined as never);
+    zeile?.render?.(setting);
+    const komponenten = (setting as unknown as { components: unknown[] }).components;
+    expect(komponenten.length).toBeGreaterThan(0);
+  });
+});

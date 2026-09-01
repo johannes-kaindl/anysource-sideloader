@@ -190,7 +190,8 @@ gelten. Ohne Netz `übersprungen`.
 
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
-| 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen | bestanden: Overwrite-Guard (`src/obsidian/flows.ts:121`) ausgebaut → **genau D3** rot, sonst keiner mitgefallen |
+| 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
+| 2026-09-01 (nach dem Fix) | 1.13.7 | **38/38** — E2/E3 grün, E4/E5 laufen jetzt statt übersprungen zu werden | Fix belegt: derselbe Treiber war vorher rot, und die A/B-Messung zeigt die Ursache | bestanden: Overwrite-Guard (`src/obsidian/flows.ts:121`) ausgebaut → **genau D3** rot, sonst keiner mitgefallen |
 
 Die Gegenprobe traf eine vorher aufgeschriebene Vorhersage: D3 rot, D4 **grün**, weil D4 nur
 den Abbruch misst und „Cancel“ auch am Install-Confirm abbricht. Der rote Punkt nannte, was
@@ -199,21 +200,36 @@ stattdessen dastand — „Install ASL Smoke Target?“ mit `mod-cta` statt Over
 
 ### Was der erste Lauf gefunden hat
 
-**Befund (offen): die Listen-Einstellungen sind in Obsidian 1.13 nicht bedienbar.**
-„Catalogs“ und „Access tokens“ erscheinen im Einstellungen-Fenster als Items mit Namen und
-Beschreibung, aber **ohne jedes Bedienelement** — keine Zeilen, keine Knöpfe. Beide werden
-über eine `render`-Hatch gezeichnet (`SettingDefinitionRender`, seit 1.13.0); der Toggle
-daneben, der über den deklarativen Pfad läuft, funktioniert einwandfrei (E6 grün). Praktisch
-heißt das: **in Obsidian 1.13 lassen sich weder Kataloge noch Token-Hosts verwalten**, außer
-über den `display()`-Fallback älterer Versionen.
+**Befund (BEHOBEN in 0.1.1): die Listen-Einstellungen waren in Obsidian 1.13 nicht
+bedienbar.** „Catalogs" und „Access tokens" erschienen im Einstellungen-Fenster als Items
+mit Namen und Beschreibung, aber **ohne jedes Bedienelement**. Praktisch: weder
+Katalog-Abos noch Token-Hosts waren dort verwaltbar. 65 grüne Unit-Tests sahen es nicht —
+der Defekt lebte vollständig in der Naht zum Host.
 
-Was gemessen ist: `getSettingDefinitions()` liefert für beide korrekt eine `render`-Funktion;
-im DOM entsteht daraus nichts; keine Exception, keine Konsolenmeldung. Was **nicht** geklärt
-ist: ob Obsidian `render` gar nicht ruft, oder ob unser Callback seine Zeilen an
-`setting.settingEl.parentElement` hängt und dieser Elternteil im nativen Pfad ein anderer
-ist. Der naheliegende Instrumentierungs-Weg trägt nicht — Obsidian ruft
-`getSettingDefinitions()` **einmal bei der Registrierung** und cacht das Ergebnis, ein
-nachträglich gesetzter Wrapper greift also nie (`defsRufe: 0`, auch nach Plugin-Neuladen).
+**Die Ursache, per A/B im selben Build gemessen:** eine `render`-Hatch darf **genau ihre
+eigene Zeile** befüllen. Was sie daneben baut, überlebt im nativen 1.13-Pfad nicht — weder
+über `settingEl.parentElement` (das Element hängt beim Aufruf noch nicht im Dokument,
+`imDOM=false`) noch über `group.addSetting()`. Beides **lautlos**, ohne Exception und ohne
+Konsolenmeldung.
+
+| Bauweise | erscheint? |
+|---|---|
+| `setting.addText(…)` direkt in der übergebenen Zeile | **ja** |
+| Zusatzzeile über `group.addSetting(…)` | nein |
+| Zusatzzeile an `settingEl.parentElement` | nein |
+
+**Der Fix:** jede Zeile ist eine eigene Definition in einer `type: "group"`. Das trägt in
+beiden Renderpfaden — der Kit-Walker iteriert `items` genauso. Gegen den Rückweg in den
+Defekt steht seit 0.1.1 `tests/obsidian/settings-tab.test.ts` (im Defektzustand 5 von 7
+rot gemessen); dass Obsidian die Definitionen auch *zeichnet*, kann nur dieser Smoke sagen.
+
+⚠️ **Der Irrweg, den die Instrumentierung selbst erzeugt hat, ist die eigentliche Lehre:**
+Obsidian ruft `getSettingDefinitions()` **einmal bei der Registrierung** und cacht das
+Ergebnis. Ein nachträglich gesetzter Wrapper greift deshalb nie — die erste Messung meldete
+`renderRufe: []` und legte „Obsidian ruft `render` gar nicht" nahe. Das war ein Artefakt der
+Messung, nicht der Befund: mit einer Instrumentierung **im Plugin selbst** zeigte sich, dass
+`render` sehr wohl gerufen wird. Eine Messung, deren Nullresultat auch von ihrem eigenen
+Aufbau kommen kann, ist kein Nullresultat.
 
 ### Zwei Werkzeugfehler, die der erste Lauf ans Licht brachte
 

@@ -96,11 +96,6 @@ No screenshots yet — a follow-up pass will add them via the `readme-shots` wor
   available test account (flagged) could not provide. Private **Forgejo/Gitea** sources, by
   contrast, are fully supported and proven end-to-end (private repo + token, detect → latest
   release → asset download) in `tests/integration/live-forge.test.ts`.
-- **Catalogs and access tokens cannot be managed on Obsidian 1.13.** Both settings render
-  as empty rows there — name and description, no controls — so neither catalog subscriptions
-  nor per-host tokens can be edited from the settings tab. The pre-subscribed default catalog
-  and "Install plugin from URL" still work. Found by the GUI smoke (`docs/SMOKE.md`, E2/E3);
-  a fix is tracked.
 - **Checksums prove transport integrity only, not authenticity.** A `checksums.sha256`
   file is fetched from the same forge as the payload it verifies, and is not signed. It
   catches corruption and accidental mismatch; it does **not** catch a compromised forge

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-09-01
+
 ### Added
 
 - GUI smoke driver (`npm run smoke:gui`) that runs the checklist in `docs/SMOKE.md`
@@ -15,11 +17,18 @@ All notable changes to this project are documented here. The format follows
   HTTP servers on 127.0.0.1), so the run needs neither network nor a token, and it can
   produce the two redirects a real forge cannot be asked for.
 
-### Fixed / documented
+### Fixed
 
-- **Known limitation added:** catalogs and access tokens cannot be managed on Obsidian
-  1.13 — both settings render as empty rows. Found by the first smoke run; a fix is
-  tracked.
+- **Catalogs and access tokens were not manageable on Obsidian 1.13.** Both settings
+  rendered as empty rows — name and description, no controls — so neither catalog
+  subscriptions nor per-host tokens could be edited. Cause: a single `render` hatch may
+  only fill *its own* row; the extra rows it built next to itself were silently discarded
+  by the native renderer (no exception, no console message). Each row is now its own
+  definition inside a settings group. Found by the GUI smoke, not by the unit tests — the
+  defect lived entirely in the seam to the host.
+
+### Documented
+
 - **Known limitation sharpened from guess to measurement:** `requestUrl` forwards the
   `Authorization` header across a redirect to a different host (measured for 302 and 303).
   This is the transport half of why private GitHub sources stay experimental.

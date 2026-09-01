@@ -10,6 +10,7 @@ import {
   Setting,
   type Plugin,
   type SettingDefinitionItem,
+  type SettingGroupItem,
 } from "obsidian";
 import type { SideloaderSettings } from "../core/settings";
 import type { SecretStore } from "./secrets";
@@ -42,6 +43,40 @@ export class SideloaderSettingTab extends PluginSettingTab {
   }
 
   // ── Die eine Wahrheit ────────────────────────────────────────────────────
+  //
+  // ⚠️ **Eine `render`-Hatch darf genau IHRE EINE Zeile befuellen.** Was sie daneben
+  // baut, ueberlebt im nativen 1.13-Pfad nicht: weder ueber `settingEl.parentElement`
+  // (das Element haengt beim Aufruf noch nicht im Dokument) noch ueber
+  // `group.addSetting()`. Beides an Obsidian 1.13.7 gemessen (2026-09-01, A/B im selben
+  // Build: direkt befuellte Zeile erscheint, Zusatzzeile nicht) — und beides **lautlos**,
+  // ohne Exception. Vorher standen "Catalogs" und "Access tokens" deshalb als leere
+  // Zeilen da und waren nicht bedienbar; gefunden hat es der GUI-Smoke (E2/E3), nicht die
+  // Unit-Tests: der Defekt lebt ausschliesslich in der Naht zum Host.
+  //
+  // ── Abweichung, ausdruecklich statt stillschweigend (UI-STANDARD §1a) ──
+  // Die fuenf Nachbarn mit demselben Walker (paperless-storage, calendar-notes,
+  // koda-agent, llm-lab, mailstone) loesen das ueber `settingBodyHost(setting)` aus dem
+  // Kit-Walker: es leert die Zeile, nimmt ihr die `setting-item`-Klasse und gibt sie als
+  // nackten Container zurueck, in den die ganze Liste gebaut wird. Das funktioniert (alles
+  // haengt IN der Zeile) und waere die Kit-first-Antwort — die Funktion ist hier sogar
+  // schon vendored.
+  //
+  // Hier trotzdem anders, aus einem Grund, der die Abweichung tragen muss: eine Liste aus
+  // ECHTEN Setting-Zeilen ist das, wofuer Obsidian 1.13 `type: "group"` eingefuehrt hat.
+  // Sie erbt natives Styling und wird von der Settings-Suche gefunden; ein geleerter
+  // Container ist fuer die Suche ein blinder Fleck. `settingBodyHost` ist der Weg aus dem
+  // Fallback-Pfad (<1.13), der nativ zufaellig auch traegt.
+  // `gilt-solange:` Obsidian `SettingDefinitionGroup.items` unterstuetzt und die
+  // Settings-Suche Gruppen-Items indiziert. Faellt eines davon weg, ist
+  // `settingBodyHost(setting)` der Rueckweg — der Umbau ist auf die beiden
+  // `*Items()`-Methoden begrenzt.
+  //
+  // Mehrzeilige Listen entstehen deshalb als **Gruppe mit je einer Definition pro Zeile**.
+  // Das traegt in BEIDEN Pfaden: der Kit-Walker iteriert `items` genauso und ruft je Item
+  // `render(setting)` auf. Die nativen Listen-Affordanzen (`type: "list"` mit
+  // `onDelete`/`addItem`) bleiben bewusst ungenutzt — der Fallback-Walker zeichnet sie
+  // nicht nach (i2m-Befund), und eine Zeile, die ihren Loeschknopf selbst traegt, ist in
+  // beiden Pfaden dieselbe.
   getSettingDefinitions(): SettingDefinitionItem<keyof SideloaderSettings>[] {
     return [
       {
@@ -50,17 +85,14 @@ export class SideloaderSettingTab extends PluginSettingTab {
         control: { type: "toggle", key: "checkOnStartup" },
       },
       {
-        name: STRINGS.settings.catalogs.name,
-        desc: STRINGS.settings.catalogs.desc,
-        // Liste mit Add/Remove: der Fallback-Walker zeichnet SettingDefinitionList-
-        // Affordanzen (onDelete/addItem) nicht nach (i2m-Befund) — deshalb eine einzelne
-        // render-Hatch, die sich selbst um Zeilen + Add/Remove kuemmert.
-        render: (setting) => this.renderCatalogs(setting),
+        type: "group",
+        heading: STRINGS.settings.catalogs.name,
+        items: this.catalogItems(),
       },
       {
-        name: STRINGS.settings.tokens.name,
-        desc: STRINGS.settings.tokens.desc,
-        render: (setting) => this.renderTokens(setting),
+        type: "group",
+        heading: STRINGS.settings.tokens.name,
+        items: this.tokenItems(),
       },
     ];
   }
@@ -81,90 +113,119 @@ export class SideloaderSettingTab extends PluginSettingTab {
     refreshSettingsTab(this, () => this.rebuild());
   }
 
-  // ── Render-Hatches (ein Code, beide Pfade) ───────────────────────────────
+  // ── Listen als Definitionen (ein Code, beide Pfade) ──────────────────────
 
-  private renderCatalogs(setting: Setting): void {
-    setting.setName(STRINGS.settings.catalogs.name).setDesc(STRINGS.settings.catalogs.desc);
-    const parent = setting.settingEl.parentElement ?? setting.settingEl;
+  /** Erklaertext der Gruppe als eigene Zeile. `heading` traegt nur den Namen, und der
+   *  Erklaertext ist nach UI-STANDARD §10 Pflicht — er darf nicht dem Umbau zum Opfer
+   *  fallen. */
+  private descItem(desc: string): SettingGroupItem<keyof SideloaderSettings> {
+    return { name: "", desc };
+  }
+
+  private catalogItems(): SettingGroupItem<keyof SideloaderSettings>[] {
+    const items: SettingGroupItem<keyof SideloaderSettings>[] = [
+      this.descItem(STRINGS.settings.catalogs.desc),
+    ];
 
     this.host.settings.catalogs.forEach((url, index) => {
-      const row = new Setting(parent);
-      row.settingEl.addClass("anysource-sideloader-list-row");
-      row.addText((text) =>
-        text.setValue(url).onChange((value) => {
-          this.host.settings.catalogs[index] = value.trim();
-          void this.host.saveSettings();
-        }),
-      );
-      row.addExtraButton((btn) =>
-        btn
-          .setIcon("trash-2")
-          .setTooltip(STRINGS.settings.catalogRemove)
-          .onClick(() => {
-            this.host.settings.catalogs.splice(index, 1);
-            void this.host.saveSettings();
-            this.refresh();
-          }),
-      );
+      items.push({
+        name: "",
+        render: (row: Setting) => {
+          row.settingEl.addClass("anysource-sideloader-list-row");
+          row.addText((text) =>
+            text.setValue(url).onChange((value) => {
+              this.host.settings.catalogs[index] = value.trim();
+              void this.host.saveSettings();
+            }),
+          );
+          row.addExtraButton((btn) =>
+            btn
+              .setIcon("trash-2")
+              .setTooltip(STRINGS.settings.catalogRemove)
+              .onClick(() => {
+                this.host.settings.catalogs.splice(index, 1);
+                void this.host.saveSettings();
+                this.refresh();
+              }),
+          );
+        },
+      });
     });
 
     let pendingCatalog = "";
-    const addRow = new Setting(parent);
-    addRow.settingEl.addClass("anysource-sideloader-list-row");
-    addRow.addText((text) =>
-      text.setPlaceholder(STRINGS.settings.catalogAdd).onChange((value) => {
-        pendingCatalog = value;
-      }),
-    );
-    addRow.addButton((btn) =>
-      btn.setButtonText(STRINGS.settings.catalogAdd).onClick(() => {
-        const trimmed = pendingCatalog.trim();
-        if (!trimmed) return;
-        this.host.settings.catalogs.push(trimmed);
-        void this.host.saveSettings();
-        this.refresh();
-      }),
-    );
-  }
-
-  private renderTokens(setting: Setting): void {
-    setting.setName(STRINGS.settings.tokens.name).setDesc(STRINGS.settings.tokens.desc);
-    const parent = setting.settingEl.parentElement ?? setting.settingEl;
-
-    for (const host of Object.keys(this.host.settings.hostSecrets)) {
-      const row = new Setting(parent);
-      row.settingEl.addClass("anysource-sideloader-list-row");
-      row.setName(host);
-      this.renderSecretControl(row, host);
-      row.addExtraButton((btn) =>
-        btn
-          .setIcon("trash-2")
-          .setTooltip(STRINGS.settings.tokenRemove)
-          .onClick(() => {
-            delete this.host.settings.hostSecrets[host];
+    items.push({
+      name: "",
+      render: (row: Setting) => {
+        row.settingEl.addClass("anysource-sideloader-list-row");
+        row.addText((text) =>
+          text.setPlaceholder(STRINGS.settings.catalogAdd).onChange((value) => {
+            pendingCatalog = value;
+          }),
+        );
+        row.addButton((btn) =>
+          btn.setButtonText(STRINGS.settings.catalogAdd).onClick(() => {
+            const trimmed = pendingCatalog.trim();
+            if (!trimmed) return;
+            this.host.settings.catalogs.push(trimmed);
             void this.host.saveSettings();
             this.refresh();
           }),
-      );
+        );
+      },
+    });
+
+    return items;
+  }
+
+  private tokenItems(): SettingGroupItem<keyof SideloaderSettings>[] {
+    const items: SettingGroupItem<keyof SideloaderSettings>[] = [
+      this.descItem(STRINGS.settings.tokens.desc),
+    ];
+
+    for (const host of Object.keys(this.host.settings.hostSecrets)) {
+      items.push({
+        name: "",
+        render: (row: Setting) => {
+          row.settingEl.addClass("anysource-sideloader-list-row");
+          row.setName(host);
+          this.renderSecretControl(row, host);
+          row.addExtraButton((btn) =>
+            btn
+              .setIcon("trash-2")
+              .setTooltip(STRINGS.settings.tokenRemove)
+              .onClick(() => {
+                delete this.host.settings.hostSecrets[host];
+                void this.host.saveSettings();
+                this.refresh();
+              }),
+          );
+        },
+      });
     }
 
     let pendingHost = "";
-    const addRow = new Setting(parent);
-    addRow.settingEl.addClass("anysource-sideloader-list-row");
-    addRow.addText((text) =>
-      text.setPlaceholder(STRINGS.settings.tokenHost).onChange((value) => {
-        pendingHost = value;
-      }),
-    );
-    addRow.addButton((btn) =>
-      btn.setButtonText(STRINGS.settings.tokenAdd).onClick(() => {
-        const host = normalizeHost(pendingHost);
-        if (!host || host in this.host.settings.hostSecrets) return;
-        this.host.settings.hostSecrets[host] = "";
-        void this.host.saveSettings();
-        this.refresh();
-      }),
-    );
+    items.push({
+      name: "",
+      render: (row: Setting) => {
+        row.settingEl.addClass("anysource-sideloader-list-row");
+        row.addText((text) =>
+          text.setPlaceholder(STRINGS.settings.tokenHost).onChange((value) => {
+            pendingHost = value;
+          }),
+        );
+        row.addButton((btn) =>
+          btn.setButtonText(STRINGS.settings.tokenAdd).onClick(() => {
+            const host = normalizeHost(pendingHost);
+            if (!host || host in this.host.settings.hostSecrets) return;
+            this.host.settings.hostSecrets[host] = "";
+            void this.host.saveSettings();
+            this.refresh();
+          }),
+        );
+      },
+    });
+
+    return items;
   }
 
   /** SecretComponent-Zeile: `onChange` liefert laut REGISTRY-Befund (calendar-notes,
