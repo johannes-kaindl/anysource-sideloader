@@ -79,17 +79,6 @@ Catalog format:
     "repo": "https://git.jkaindl.de/jkaindl/vault-rag", "author": "Johannes Kaindl", "tags": ["ai"] }] }
 ```
 
-## Configuration
-
-### Access tokens
-
-Private repos and private catalogs need authentication. Tokens are stored per forge
-host in Obsidian's own keychain (via the built-in `SecretComponent` in the settings
-tab) — never in `data.json`, never in plain text. This is the mechanism that makes the
-organisation use case work: an org can host a private Forgejo/Gitea instance with
-internal plugins and catalogs, and members authenticate with a token scoped to that
-host.
-
 ### Updates
 
 - A startup check (toggle in settings) looks for new releases across all configured
@@ -97,16 +86,6 @@ host.
 - Updates are applied manually — there is no silent, unattended auto-update.
 - Before applying, the plugin shows the release notes from the new version so you know
   what you're installing.
-
-## How it works
-
-- When a release carries a `checksums.sha256` file, the downloaded asset is verified
-  against it before installation; a mismatch blocks the install.
-- No silent auto-updates: every update is a deliberate, visible action.
-- An id-change guard prevents a malicious or misconfigured release from silently
-  swapping out the plugin id an install is bound to.
-
-No screenshots yet — a follow-up pass will add them via the `readme-shots` workflow.
 
 ### Already have plugins installed?
 
@@ -123,6 +102,27 @@ Checking is manual by default: the **Check for updates** button sits in the Upda
 in the settings, and the same action is available from the command palette (so you can bind
 a hotkey). With "Check for updates on startup" enabled, it also runs once shortly after
 Obsidian starts. Updates are never installed without your confirmation.
+
+## Configuration
+
+### Access tokens
+
+Private repos and private catalogs need authentication. Tokens are stored per forge
+host in Obsidian's own keychain (via the built-in `SecretComponent` in the settings
+tab) — never in `data.json`, never in plain text. This is the mechanism that makes the
+organisation use case work: an org can host a private Forgejo/Gitea instance with
+internal plugins and catalogs, and members authenticate with a token scoped to that
+host.
+
+## How it works
+
+- When a release carries a `checksums.sha256` file, the downloaded asset is verified
+  against it before installation; a mismatch blocks the install.
+- No silent auto-updates: every update is a deliberate, visible action.
+- An id-change guard prevents a malicious or misconfigured release from silently
+  swapping out the plugin id an install is bound to.
+
+No screenshots yet — a follow-up pass will add them via the `readme-shots` workflow.
 
 ## Known limitations
 
