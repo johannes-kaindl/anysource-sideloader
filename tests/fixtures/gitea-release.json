@@ -1,0 +1,79 @@
+{
+    "id": 479,
+    "tag_name": "0.1.9",
+    "target_commitish": "",
+    "name": "0.1.9",
+    "body": "- **Fix (Abgleich): Eine leere Sammlung brach den Abgleich mit \u201eAntwort ist kein DAV:multistatus\" ab.** Ein Kalender ohne Termine antwortet regul\u00e4r mit einem Wurzelknoten ohne Kinder, und mailbox.org schickt ihn selbstschlie\u00dfend (`<D:multistatus \u2026 />`). Der XML-Parser liefert daf\u00fcr einen leeren *String* statt eines leeren Objekts \u2014 die Pr\u00fcfung hielt das f\u00fcr \u201egar kein Multistatus\" und meldete einen Protokollfehler. Betroffen war damit **jeder leere Kalender und jedes frisch angelegte Adressbuch**, also gerade der Zustand beim ersten Einrichten. Jetzt ist nur noch ein **fehlender** Wurzelknoten ein Fehler; ein leerer bedeutet schlicht \u201ekeine Eintr\u00e4ge\". Gegen mailbox.org verifiziert: sechs Sammlungen, kein Fehler.\n- **Fehlermeldungen des DAV-Parsers nennen jetzt die Anfrage und den Antwortanfang.** Vorher lautete die Meldung an sieben verschiedenen Aufrufstellen gleich, ohne zu sagen, welche Anfrage gescheitert war oder was der Server stattdessen geschickt hat \u2014 der Fehler war aus ihr heraus nicht eingrenzbar. Genau daran ist die Ursachensuche oben zuerst gescheitert.\n- **Die Einstellungen erkl\u00e4ren sich jetzt selbst.** Jede Zeile sagt, was sie bewirkt \u2014 bis dahin standen dort W\u00f6rter aus dem DAV-Protokoll ohne Aufl\u00f6sung (\u201eSammlung\", \u201eProfil\", \u201eOrdner-Override\", \u201eTrockenlauf\"), und wer CalDAV nicht kennt, hatte keinen Einstiegspunkt. Konkret: \u201eSammlungen\" hei\u00dft **\u201eKalender & Adressb\u00fccher\"**, und die Seite darunter tr\u00e4gt jetzt den Kontonamen **samt Anzahl** (\u201emailbox.org \u2014 6 gefunden\") statt nur den Kontonamen \u2014 vorher sah es aus, als g\u00e4be es genau eine Sammlung, die so hei\u00dft wie der Anbieter. **\u201eProfil aus der ge\u00f6ffneten Notiz erzeugen\"** ist eine beschriftete Zeile mit Erkl\u00e4rung geworden statt eines unbeschrifteten Zauberstab-Icons, dessen Bedeutung nur im Tooltip stand (auf Mobilger\u00e4ten also nirgends) \u2014 es ist der zentrale Einrichtungsschritt und war praktisch unauffindbar. Die Sprachwahl steht nicht mehr unter \u201eSynchronisation\", sondern unter \u201eDarstellung\"; sie bleibt, weil sie gebraucht wird, wenn man Obsidian in einer anderen Sprache bedient, als man das Plugin lesen will.\n- Fix: Der Hinweis an Sammlungen ohne Termine war grammatisch bezuglos (\u201eSie wird nicht gespiegelt; es w\u00e4re nichts zu finden\") und nannte den Gegenstand nicht. Neu formuliert.\n- Fix (still, aber ernst): Eine Einstellungs-**Liste** z\u00e4hlt ihre L\u00f6sch-Funktion \u00fcber den Index in der Zeilenliste. Eine Erkl\u00e4rzeile darin h\u00e4tte beim L\u00f6schen das **falsche Konto** getroffen. Erkl\u00e4rungen stehen jetzt neben der Liste statt darin, abgesichert durch einen Test, der jede Liste mit L\u00f6sch-Funktion darauf pr\u00fcft.",
+    "url": "https://git.jkaindl.de/api/v1/repos/jkaindl/calendar-notes/releases/479",
+    "html_url": "https://git.jkaindl.de/jkaindl/calendar-notes/releases/tag/0.1.9",
+    "tarball_url": "https://git.jkaindl.de/jkaindl/calendar-notes/archive/0.1.9.tar.gz",
+    "zipball_url": "https://git.jkaindl.de/jkaindl/calendar-notes/archive/0.1.9.zip",
+    "hide_archive_links": false,
+    "upload_url": "https://git.jkaindl.de/api/v1/repos/jkaindl/calendar-notes/releases/479/assets",
+    "draft": false,
+    "prerelease": false,
+    "created_at": "2026-08-29T18:23:23Z",
+    "published_at": "2026-08-29T18:23:23Z",
+    "author": {
+        "id": 1,
+        "login": "jkaindl",
+        "login_name": "",
+        "source_id": 0,
+        "full_name": "",
+        "email": "jkaindl@noreply.git.jkaindl.de",
+        "avatar_url": "https://git.jkaindl.de/avatars/13647c7be909e610a8b3019a061126a83d59f950069656aa2e67c9b145d425d0",
+        "html_url": "https://git.jkaindl.de/jkaindl",
+        "language": "",
+        "is_admin": false,
+        "last_login": "0001-01-01T00:00:00Z",
+        "created": "2026-07-29T21:26:00Z",
+        "restricted": false,
+        "active": false,
+        "prohibit_login": false,
+        "location": "",
+        "pronouns": "",
+        "website": "https://jkaindl.de",
+        "description": "",
+        "visibility": "public",
+        "followers_count": 0,
+        "following_count": 0,
+        "starred_repos_count": 0,
+        "username": "jkaindl"
+    },
+    "assets": [
+        {
+            "id": 843,
+            "name": "main.js",
+            "size": 316658,
+            "download_count": 0,
+            "created_at": "2026-08-29T18:23:33Z",
+            "uuid": "e59f7101-184d-4c73-a8b2-7a66672a0d66",
+            "browser_download_url": "https://git.jkaindl.de/jkaindl/calendar-notes/releases/download/0.1.9/main.js",
+            "type": "attachment"
+        },
+        {
+            "id": 844,
+            "name": "manifest.json",
+            "size": 340,
+            "download_count": 0,
+            "created_at": "2026-08-29T18:23:33Z",
+            "uuid": "3249873d-e4b3-41d6-a42e-b3566acd4daa",
+            "browser_download_url": "https://git.jkaindl.de/jkaindl/calendar-notes/releases/download/0.1.9/manifest.json",
+            "type": "attachment"
+        },
+        {
+            "id": 845,
+            "name": "styles.css",
+            "size": 1083,
+            "download_count": 0,
+            "created_at": "2026-08-29T18:23:33Z",
+            "uuid": "2595e58d-72af-4813-bb70-b8ab1b0ac3c5",
+            "browser_download_url": "https://git.jkaindl.de/jkaindl/calendar-notes/releases/download/0.1.9/styles.css",
+            "type": "attachment"
+        }
+    ],
+    "archive_download_count": {
+        "zip": 0,
+        "tar_gz": 0
+    }
+}
