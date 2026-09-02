@@ -1,6 +1,7 @@
 {
   "source": "code-kit",
-  "version": "0.1.0",
-  "sha": "19a80d503bab677b3539709fa312d80c64bf1247",
-  "vendored": "2026-09-01"
+  "version": "0.5.0",
+  "sha": "efcd456e0a51ccfc8ae683420d1d5d0ecaf46bcc",
+  "modules": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts",
+  "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh."
 }
