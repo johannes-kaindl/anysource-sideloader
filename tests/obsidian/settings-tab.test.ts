@@ -3,6 +3,7 @@ import { Setting } from "obsidian";
 import { SideloaderSettingTab, normalizeHost, type SettingsHost } from "../../src/obsidian/settings-tab";
 import { DEFAULT_SETTINGS, type SideloaderSettings } from "../../src/core/settings";
 import { MemorySecretStore } from "../../src/obsidian/secrets";
+import { STRINGS } from "../../src/i18n/strings";
 
 /**
  * Diese Datei sichert die **Struktur**, die der Fix vom 2026-09-01 hergestellt hat — und
@@ -208,3 +209,79 @@ describe("getSettingDefinitions — Struktur", () => {
     });
   });
 });
+
+/**
+ * Eine laufende Eingabe überlebt ein Neuzeichnen (Produktfehler, gemessen 2026-09-02).
+ *
+ * Der Tab zeichnet sich bei mehreren Anlässen komplett neu — Katalog fertig geladen,
+ * Platten-Bestand geändert, nach jedem Flow. Der getippte Text lebte bis dahin in einer
+ * **Closure-Variablen** (`pendingCatalog`/`pendingHost`), die `getSettingDefinitions()` bei
+ * jedem Aufbau neu und leer anlegt. Wer tippte, während der Katalog fertig lud, klickte
+ * danach auf „Add" — und trug nichts ein.
+ *
+ * Gemessen wurde es am Prüfwerkzeug (`hostSecrets` blieb leer, `selbesFeld: false`), es
+ * trifft aber jeden Nutzer, der die Einstellungen öffnet und sofort tippt: das Zeitfenster
+ * ist so lang, wie der Katalog lädt — über WAN mehrere Sekunden.
+ *
+ * ⚠️ Was diese Tests NICHT abdecken: **Fokus und Cursorposition**. Der Wert überlebt hier
+ * nachweislich; ob das Feld nach dem Neuzeichnen noch bedienbar ist, ist eine DOM-Aussage
+ * und gehört dem GUI-Smoke (Abschnitt E). Die Arbeitsteilung steht hier, damit ein grüner
+ * Lauf nicht als Freispruch für die ganze Sache gelesen wird.
+ */
+describe("Eine laufende Eingabe überlebt ein Neuzeichnen", () => {
+  /** Die „Add“-Zeile ist die letzte Zeile ihrer Gruppe — gezielt über die Position, weil
+   *  sie als einzige Zeile der Gruppe keinen Namen trägt und kein Abo repräsentiert. */
+  function addZeile(tab: SideloaderSettingTab, heading: string): Setting {
+    const items = (gruppe(tab, heading)?.items ?? []) as { render?: (s: Setting) => void }[];
+    const s = new Setting(undefined as never);
+    items[items.length - 1]?.render?.(s);
+    return s;
+  }
+  const teile = (s: Setting): any[] => (s as unknown as { components: any[] }).components;
+  const feld = (s: Setting): any => teile(s).find((c) => "onChangeCB" in c && typeof c.getValue === "function");
+  const knopf = (s: Setting, text: string): any => teile(s).find((c) => c.textValue === text);
+
+  it("die getippte Katalog-URL wird eingetragen, obwohl der Tab dazwischen neu zeichnet", () => {
+    const h = host();
+    const tab = new SideloaderSettingTab({} as never, h);
+
+    feld(addZeile(tab, "Catalogs")).onChangeCB("https://forge.example/c.json");
+    tab.aktualisieren(); // der Katalog ist fertig geladen — der Tab zeichnet neu
+    knopf(addZeile(tab, "Catalogs"), STRINGS.settings.catalogAdd).clickCB();
+
+    expect(h.settings.catalogs).toEqual(["https://forge.example/c.json"]);
+  });
+
+  it("der getippte Token-Host wird uebernommen, obwohl der Tab dazwischen neu zeichnet", () => {
+    // Exakt der gemessene Fall: der GUI-Smoke fuellte das Host-Feld, der Tab zeichnete
+    // neu, „Add host" traf ein leeres Feld — `hostSecrets` blieb leer.
+    const h = host();
+    const tab = new SideloaderSettingTab({} as never, h);
+
+    feld(addZeile(tab, "Access tokens")).onChangeCB("https://git.example.com/owner/repo");
+    tab.aktualisieren();
+    knopf(addZeile(tab, "Access tokens"), STRINGS.settings.tokenAdd).clickCB();
+
+    expect(Object.keys(h.settings.hostSecrets)).toEqual(["git.example.com"]);
+  });
+
+  it("das neu gezeichnete Feld zeigt den getippten Wert weiter an", () => {
+    // Ohne das waere der Wert zwar gerettet, das Feld aber sichtbar leer — der Nutzer
+    // tippte ihn ein zweites Mal und haette ihn danach doppelt.
+    const tab = new SideloaderSettingTab({} as never, host());
+    feld(addZeile(tab, "Catalogs")).onChangeCB("https://forge.example/c.json");
+    tab.aktualisieren();
+    expect(feld(addZeile(tab, "Catalogs")).getValue()).toBe("https://forge.example/c.json");
+  });
+
+  it("nach dem Eintragen ist das Feld wieder leer", () => {
+    // Der Rueckweg in einen Fehler, den erst die Rettung erzeugt: bleibt der Wert stehen,
+    // traegt der naechste Klick denselben Katalog ein zweites Mal ein.
+    const h = host();
+    const tab = new SideloaderSettingTab({} as never, h);
+    feld(addZeile(tab, "Catalogs")).onChangeCB("https://forge.example/c.json");
+    knopf(addZeile(tab, "Catalogs"), STRINGS.settings.catalogAdd).clickCB();
+    expect(feld(addZeile(tab, "Catalogs")).getValue()).toBe("");
+  });
+});
+

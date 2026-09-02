@@ -83,6 +83,23 @@ export class SideloaderSettingTab extends PluginSettingTab {
   /** Plugin-id → Version, die TATSAECHLICH unter `.obsidian/plugins/` liegt. */
   private installiert = new Map<string, string>();
   private suche = "";
+  /**
+   * Der Inhalt der beiden „Add“-Felder — im TAB, nicht im Aufbau.
+   *
+   * Bis 2026-09-02 waren das Closure-Variablen in `catalogItems()`/`tokenItems()`. Die
+   * legt `getSettingDefinitions()` bei JEDEM Aufbau neu und leer an, und der Tab zeichnet
+   * sich bei mehreren Anlaessen neu (Katalog fertig geladen, Platten-Bestand geaendert,
+   * nach jedem Flow). Wer tippte, waehrend der Katalog lud, klickte danach auf „Add“ und
+   * trug nichts ein — gemessen am GUI-Smoke (`hostSecrets` blieb leer, das Eingabefeld war
+   * ein anderes DOM-Element: `selbesFeld: false`), aber ein Fehler des Produkts.
+   *
+   * ⚠️ Der naheliegende Weg — das Neuzeichnen aufschieben, solange ein Feld den Fokus hat —
+   * ist gemessen falsch: das Suchfeld in „Browse catalogs“ stoesst bei JEDEM Tastendruck
+   * selbst ein `refresh()` an (es filtert die Liste). Ein Fokus-Guard haette die Suche
+   * stillgelegt. Deshalb der Zustand, nicht der Aufschub.
+   */
+  private pendingCatalog = "";
+  private pendingHost = "";
 
   private async ladeKatalog(): Promise<void> {
     const schluessel = JSON.stringify(this.host.settings.catalogs);
@@ -349,7 +366,55 @@ export class SideloaderSettingTab extends PluginSettingTab {
    *  statt `display()` — ein interner `display()`-Aufruf loest sonst die 1.13-Deprecation
    *  aus (`paperless-storage`-Befund). */
   private refresh(): void {
+    const cursor = this.cursorImAktivenFeld();
     refreshSettingsTab(this, () => this.rebuild());
+    this.stelleCursorHer(cursor);
+  }
+
+  /**
+   * Das Textfeld, in dem gerade getippt wird — oder `null`.
+   *
+   * ⚠️ Bewusst per Ententest (`setSelectionRange`) statt `instanceof HTMLInputElement`:
+   * die Einstellungen koennen in einem EIGENEN FENSTER stehen (gemessen im GUI-Smoke,
+   * „Einstellungen als eigenes Fenster"), und dessen `HTMLInputElement` ist ein anderer
+   * Konstruktor als der des Hauptfensters. `instanceof` waere dort immer falsch.
+   */
+  private aktivesTextfeld(): HTMLInputElement | null {
+    const el = this.containerEl.ownerDocument?.activeElement as HTMLInputElement | null;
+    if (!el || typeof el.setSelectionRange !== "function") return null;
+    return this.containerEl.contains?.(el) ? el : null;
+  }
+
+  private cursorImAktivenFeld(): { anfang: number; ende: number } | null {
+    const el = this.aktivesTextfeld();
+    if (!el || el.selectionStart === null) return null;
+    return { anfang: el.selectionStart, ende: el.selectionEnd ?? el.selectionStart };
+  }
+
+  /**
+   * Die Cursorposition ueber das Neuzeichnen retten.
+   *
+   * Was ein Neuzeichnen verwirft, ist am 2026-09-02 im GUI-Smoke (E9, Obsidian 1.13.7)
+   * gemessen worden — und es ist WENIGER, als die Aufgabe annahm: der Wert ueberlebt
+   * (er liegt seit diesem Fix im Tab statt in einer Closure), und den FOKUS setzt
+   * Obsidians natives `update()` von selbst auf das neu gebaute Feld
+   * (`selbesFeld: false`, `fokus: true`). Allein der Cursor sprang ans Ende — 34 statt 8.
+   *
+   * Das trifft, wer eine URL in der MITTE korrigiert: nach dem Neuzeichnen tippt er am
+   * Ende weiter. Deshalb wird nur diese eine Groesse gerettet und keine Feldzuordnung
+   * aufgebaut — das neue Feld ist bereits das fokussierte.
+   */
+  private stelleCursorHer(pos: { anfang: number; ende: number } | null): void {
+    if (!pos) return;
+    const el = this.aktivesTextfeld();
+    if (!el) return;
+    // Felder ohne Auswahlbereich (`type="number"`, `type="email"`) werfen hier laut
+    // HTML-Standard — der Cursor ist dort keine sinnvolle Groesse, also stillschweigend.
+    try {
+      el.setSelectionRange(pos.anfang, pos.ende);
+    } catch {
+      /* kein Auswahlbereich */
+    }
   }
 
   /** Von aussen anstossbares Neuzeichnen.
@@ -632,21 +697,24 @@ export class SideloaderSettingTab extends PluginSettingTab {
       });
     });
 
-    let pendingCatalog = "";
     items.push({
       name: "",
       render: (row: Setting) => {
         row.settingEl.addClass("anysource-sideloader-list-row");
         row.addText((text) =>
-          text.setPlaceholder(STRINGS.settings.catalogAdd).onChange((value) => {
-            pendingCatalog = value;
-          }),
+          text
+            .setPlaceholder(STRINGS.settings.catalogAdd)
+            .setValue(this.pendingCatalog)
+            .onChange((value) => {
+              this.pendingCatalog = value;
+            }),
         );
         row.addButton((btn) =>
           btn.setButtonText(STRINGS.settings.catalogAdd).onClick(() => {
-            const trimmed = pendingCatalog.trim();
+            const trimmed = this.pendingCatalog.trim();
             if (!trimmed) return;
             this.host.settings.catalogs.push(trimmed);
+            this.pendingCatalog = "";
             void this.host.saveSettings();
             this.refresh();
           }),
@@ -683,21 +751,24 @@ export class SideloaderSettingTab extends PluginSettingTab {
       });
     }
 
-    let pendingHost = "";
     items.push({
       name: "",
       render: (row: Setting) => {
         row.settingEl.addClass("anysource-sideloader-list-row");
         row.addText((text) =>
-          text.setPlaceholder(STRINGS.settings.tokenHost).onChange((value) => {
-            pendingHost = value;
-          }),
+          text
+            .setPlaceholder(STRINGS.settings.tokenHost)
+            .setValue(this.pendingHost)
+            .onChange((value) => {
+              this.pendingHost = value;
+            }),
         );
         row.addButton((btn) =>
           btn.setButtonText(STRINGS.settings.tokenAdd).onClick(() => {
-            const host = normalizeHost(pendingHost);
+            const host = normalizeHost(this.pendingHost);
             if (!host || host in this.host.settings.hostSecrets) return;
             this.host.settings.hostSecrets[host] = "";
+            this.pendingHost = "";
             void this.host.saveSettings();
             this.refresh();
           }),

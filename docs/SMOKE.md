@@ -120,6 +120,7 @@ Plugin still überschreiben konnte.
 | E6 | Der Toggle landet in `data.json`, nicht nur im Speicher |
 | E7 | Der Klick auf „Check now" **friert die App nicht ein** |
 | E8 | Der Klick zeigt einen **bewegten** `is-checking`-Indikator und räumt ihn wieder ab |
+| E9 | Ein Neuzeichnen während der Eingabe verwirft weder **Wert** noch **Fokus** noch **Cursorposition** |
 
 E2/E3 messen die **Bedienung**, nicht den Namen: ein Item mit Beschriftung und ohne Knopf
 sieht auf einem Screenshot vollständig aus und ist es nicht. E4/E5 werden übersprungen,
@@ -131,6 +132,44 @@ ist dann korrekt, aber ihr DOM liegt nicht im Workspace-Renderer, und
 Plugin-Defekt schließt, sucht am falschen Ende. Der Treiber hält beide Lagen offen
 (`settingsStelle`) und verbindet sich im Fenster-Fall über `attachTo("settings", port)`.
 Unterschieden wird an der Sache, nie am Fenstertitel: der ist lokalisiert.
+
+**E9 misst einen Produktfehler, den E5 zwei Tage lang als Werkzeugfehler auslegte.** Der
+Tab zeichnet sich während des Tippens neu (Katalog fertig geladen, Platten-Bestand geändert,
+nach jedem Flow); danach war das Eingabefeld ein anderes DOM-Element. E5 war dagegen
+abgesichert — es setzte den Wert, bis er stehen blieb — und wäre deshalb **nicht** rot
+geworden, wenn der Fehler zurückkommt. Genau dafür gibt es E9.
+
+Drei Größen, getrennt gemessen, weil sie an drei Enden schicken. Der Lauf vor dem Fix
+(2026-09-02) zeigt, warum das nötig war — die Annahme, es sei „alles drei kaputt", war
+falsch:
+
+| | vor dem Fix | nach dem Fix |
+|---|---|---|
+| Wert | ✅ bleibt (seit der Wert im Tab liegt, nicht in einer Closure) | ✅ |
+| Fokus | ✅ Obsidians natives `update()` setzt ihn selbst aufs neue Element | ✅ |
+| Cursor | ❌ **34 statt 8** — sprang ans Ende | ✅ 8 |
+
+Der Cursor war also der ganze Rest. Wer eine URL in der **Mitte** korrigiert, tippt danach
+am Ende weiter. Deshalb steht der Cursor im Prüfpunkt bei 8 und nicht am Ende: eine Prüfung
+auf „Cursor ist irgendwo im Feld" hätte das Ende mitgezählt und wäre grün geblieben.
+
+⚠️ **E9 misst in ZWEI Renderern, und das ist kein Umweg.** Das Einstellungs-Fenster hat
+kein `app` (erster Lauf: „app is not defined"). Das Neuzeichnen wird deshalb über die
+Workspace-Verbindung ausgelöst (`app.setting.activeTab.aktualisieren()`), gemessen wird im
+Fenster, in dem das Feld steht.
+
+**Was der Fix am Treiber selbst gelehrt hat — eine Wartephase, die niemand geschrieben
+hatte.** Nach dem Fix war E5 in drei von drei Läufen rot, und die Spur schloss das Produkt
+aus: `pendingHost` stand korrekt im Tab, `hostSecrets` blieb leer — der Klick erreichte den
+Knopf nie. Ursache war E5s eigene Schleife: sie setzte den Wert neu, *solange ein
+Neuzeichnen ihn verwarf*, und war damit unbeabsichtigt auch die Wartephase auf ein ruhiges
+Fenster. Seit der Wert das Neuzeichnen überlebt, bricht sie sofort ab (`versuche: 0`) — und
+`clickReal` traf einen Knopf, den der laufende Aufbau unter der Maus austauschte. E5 wartet
+jetzt ausdrücklich, bis dasselbe Knopf-Element 300 ms übersteht.
+
+Die allgemeine Form davon ist teuer, wenn man sie übersieht: **ein Prüfpunkt, der ein
+Symptom umgeht, wartet dabei oft auf etwas — und wenn das Symptom verschwindet, verschwindet
+die Wartephase mit.** Der Fix sieht dann aus, als hätte er etwas kaputt gemacht.
 
 E7 ist der Prüfpunkt, den es ohne einen echten Ausfall nicht gäbe: E1–E6 messen alle, dass
 die Bedienelemente **da** sind — keiner drückte je einen. Am 2026-09-01 fror ein Klick auf
@@ -226,6 +265,7 @@ gelten. Ohne Netz `übersprungen`.
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
+| 2026-09-02 (Eingabe/Neuzeichnen) | 1.13.7 | **41/41** — E9 neu | A/B am selben Treiber: ohne die Cursor-Rettung **genau E9** rot (`Cursor: 34`, erwartet 8), Wert und Fokus dabei grün — die Gegenprobe hat die Aufgabe zugleich korrigiert, die von drei kaputten Größen ausging. E5 nach dem Fix 3/3 rot → als Treiber-Wettrennen belegt (`pendingHost` korrekt, Klick verfehlt) und behoben, danach 3/3 grün |
 | 2026-09-02 (is-checking) | 1.13.7 | **40/40** — E8 neu; E5 war im `--section settings`-Lauf rot und im vollen grün, jetzt eigenständig | Zwei Gegenproben, sauber getrennt: Icon verfälscht → E8 rot über `loader: 0` (animiert blieb 4) · CSS-Animation entfernt → E8 rot über `animiert: 0` (loader blieb 5); sonst kein Punkt mitgefallen |
 | 2026-09-02 (0.3.0) | 1.13.7 | **39/39** — Hub aufgelöst, A/C/G messen jetzt im Einstellungs-Tab | Gegenprobe: ein eigenes `<h3>` eingebaut → **genau A2** rot, sonst keiner |
 | 2026-09-01 (0.2.1) | 1.13.7 | **44/44** — E7 neu | Gegenprobe: alter Knopf-Code zurück → **E7 rot**, sonst keiner; die erste Fassung von E7 blieb dabei grün und musste korrigiert werden |

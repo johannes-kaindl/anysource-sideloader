@@ -1282,6 +1282,33 @@ const SECTIONS: Section[] = [
               return { nachEingabe: feld.value, nachBlur: feld.value, selbesFeld: true, versuche };
             `),
           );
+          // ⚠️ Warten, BIS der Tab ruhig ist — und zwar ausdruecklich.
+          //
+          // Bis 2026-09-02 uebernahm die Schleife oben das nebenbei: sie setzte den Wert
+          // neu, solange ein Neuzeichnen ihn verwarf, und war damit unbeabsichtigt auch
+          // die Wartephase. Seit der Wert das Neuzeichnen ueberlebt, bricht sie sofort ab
+          // (`versuche: 0`) — und `clickReal` traf in drei von drei Laeufen einen Knopf,
+          // den das laufende Neuzeichnen unter der Maus austauschte: `pendingHost` stand
+          // korrekt im Tab, `hostSecrets` blieb leer. Ein Wettrennen, das vorher ein
+          // Symptom zudeckte.
+          //
+          // Gemessen wird die IDENTITAET des Knopfes ueber zwei Proben: bleibt dasselbe
+          // DOM-Element ueber 300 ms bestehen, laeuft gerade kein Aufbau.
+          const ruhig = await pollUntil<boolean>(
+            stelle.cdp,
+            stelle.inRoot(`
+              const btnVon = () => [...root.querySelectorAll(".anysource-sideloader-list-row")]
+                .find((r) => [...r.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"))
+                ?.querySelector("button");
+              const a = btnVon();
+              if (!a) return null;
+              await new Promise((r) => setTimeout(r, 300));
+              return btnVon() === a ? true : null;
+            `),
+            8000,
+            200,
+          );
+          void ruhig;
           await clickReal(
             stelle.cdp,
             stelle.el(`[...root.querySelectorAll("button")].find((b) => b.textContent.trim() === "Add host")`),
@@ -1330,13 +1357,26 @@ const SECTIONS: Section[] = [
                     `),
                   )
                   .catch(() => null);
+          // Der Wert IM FELD sagt nicht, ob der Tab ihn kennt — genau diese Luecke liess
+          // einen roten E5 zweimal wie ein Klick-Problem aussehen. `pendingHost` wird
+          // ueber die WORKSPACE-Verbindung gelesen: das Einstellungs-Fenster ist ein
+          // eigener Renderer und hat kein `app`.
+          const tabWert = Array.isArray(hosts) && hosts.length > 0
+            ? null
+            : await cdp
+                .evaluate<{ pendingHost: unknown; pendingCatalog: unknown }>(`
+                  const t = app.setting.activeTab;
+                  return { pendingHost: t?.pendingHost ?? null, pendingCatalog: t?.pendingCatalog ?? null };
+                `)
+                .catch(() => null);
           check(
             "E5 Token-Host normalisiert (nur host:port), Zeile ohne Klartext-Token",
             Array.isArray(hosts) && hosts[0] === host && zeile !== null && !zeile.klartext,
             `hostSecrets: ${JSON.stringify(hosts ?? [])} · Zeile: „${zeile?.text ?? "(fehlt)"}“ · ` +
               `Klartext: ${zeile?.klartext ?? "?"}` +
               (spur ? ` · Spur: ${spur.zeilen} Listen-Zeilen, davon ${spur.mitAddHost} mit „Add host“, Feld: ${JSON.stringify(spur.feldWert)}` : "") +
-              (spur ? ` · Eingabe: ${JSON.stringify(eingabeSpur)}` : ""),
+              (spur ? ` · Eingabe: ${JSON.stringify(eingabeSpur)}` : "") +
+              (tabWert ? ` · im Tab: pendingHost=${JSON.stringify(tabWert.pendingHost)}` : ""),
           );
         } else {
           skipped("E5 Token-Host + SecretComponent", "die Bedienung fehlt bereits (E3 rot) — der Ablauf hätte keinen Gegenstand");
@@ -1513,6 +1553,91 @@ const SECTIONS: Section[] = [
           persistiert !== null,
           `Klick getroffen: ${getroffen} · Toggle: ${vorher} → ${nachher} · ` +
             `im Speicher false: ${imSpeicher === true} · in data.json false: ${persistiert !== null}`,
+        );
+
+        // ── E9: eine laufende Eingabe ueberlebt ein Neuzeichnen ────────────
+        //
+        // Der Produktfehler, den E5 lange als Werkzeugfehler auslegte: der Tab zeichnet
+        // sich waehrend des Tippens neu (Katalog fertig geladen, Platten-Bestand geaendert,
+        // nach jedem Flow), und danach war das Eingabefeld ein anderes, LEERES Element.
+        //
+        // ⚠️ E5 ist gegen das Symptom abgesichert (es setzt den Wert, bis er stehen
+        // bleibt) und wird deshalb NICHT rot, wenn der Fehler zurueckkommt. Ohne diesen
+        // eigenen Punkt waere der Fix ungemessen.
+        //
+        // Das Neuzeichnen wird hier bewusst DIREKT ausgeloest (`activeTab.aktualisieren()`)
+        // statt ueber einen Katalog-Ladevorgang: derselbe Codepfad, aber ohne Netz-Timing —
+        // ein Pruefpunkt, der ein Wettrennen nachstellt, misst am Ende das Wettrennen.
+        //
+        // Drei getrennte Aussagen, weil sie an drei Enden schicken: der WERT (Datenverlust,
+        // strukturell auch in tests/obsidian/settings-tab.test.ts abgedeckt), der FOKUS
+        // (nach einem Zeichen nicht mehr weitertippen zu koennen trifft vor allem die
+        // Suche, die bei JEDEM Tastendruck neu zeichnet) und die CURSORPOSITION (ein
+        // Cursor, der ans Ende springt, zerhackt eine Korrektur in der Wortmitte).
+        // Gemessen wird in ZWEI Renderern, und das ist kein Umweg: das Einstellungs-
+        // Fenster ist ein eigener Renderer OHNE `app` (erster Lauf: „app is not defined").
+        // Der Redraw wird deshalb vom Workspace-Fenster ausgeloest, gemessen wird im
+        // Fenster, in dem das Feld steht. Im Modal-Fall sind beide dieselbe Verbindung.
+        const gesetzt = await stelle.cdp
+          .evaluate<boolean>(
+            stelle.inRoot(`
+              const feldVon = () => [...root.querySelectorAll(".anysource-sideloader-list-row")]
+                .find((r) => [...r.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"))
+                ?.querySelector("input");
+              const feld = feldVon();
+              if (!feld) return false;
+              feld.focus();
+              feld.value = "https://git.example.com/owner/repo";
+              feld.dispatchEvent(new Event("input", { bubbles: true }));
+              // Cursor in die WORTMITTE, nicht ans Ende — nur so ist eine echte
+              // Wiederherstellung von einem schlichten „ans Ende springen" zu trennen.
+              feld.setSelectionRange(8, 8);
+              window.__aslE9 = feld;
+              return true;
+            `),
+          )
+          .catch(() => false);
+        const angestossen = await cdp
+          .evaluate<boolean>(`
+            const tab = app.setting.activeTab;
+            if (!tab || typeof tab.aktualisieren !== "function") return false;
+            tab.aktualisieren();
+            await new Promise((r) => setTimeout(r, 400));
+            return true;
+          `)
+          .catch(() => false);
+        const eingabeUeberlebt = await stelle.cdp
+          .evaluate<{ wert: string; fokus: boolean; cursor: number; selbesFeld: boolean } | null>(
+            stelle.inRoot(`
+              const feld = [...root.querySelectorAll(".anysource-sideloader-list-row")]
+                .find((r) => [...r.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"))
+                ?.querySelector("input");
+              if (!feld) return null;
+              return {
+                wert: feld.value,
+                fokus: feld.ownerDocument.activeElement === feld,
+                cursor: feld.selectionStart ?? -1,
+                selbesFeld: feld === window.__aslE9,
+              };
+            `),
+          )
+          .catch(() => null);
+        check(
+          "E9 ein Neuzeichnen waehrend der Eingabe verwirft weder Wert noch Fokus noch Cursorposition",
+          gesetzt &&
+            angestossen &&
+            eingabeUeberlebt !== null &&
+            eingabeUeberlebt.wert === "https://git.example.com/owner/repo" &&
+            eingabeUeberlebt.fokus &&
+            eingabeUeberlebt.cursor === 8,
+          !gesetzt
+            ? "die „Add host“-Zeile war nicht bedienbar (siehe E3)"
+            : !angestossen
+              ? "das Neuzeichnen liess sich nicht ausloesen (app.setting.activeTab.aktualisieren fehlt)"
+              : eingabeUeberlebt === null
+                ? "nach dem Neuzeichnen war die Zeile weg"
+                : `Wert: ${JSON.stringify(eingabeUeberlebt.wert)} · Fokus: ${eingabeUeberlebt.fokus} · ` +
+                  `Cursor: ${eingabeUeberlebt.cursor} (erwartet 8) · dasselbe DOM-Element: ${eingabeUeberlebt.selbesFeld}`,
         );
       } finally {
         if (stelle.eigenesFenster) {
