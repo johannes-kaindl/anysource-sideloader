@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Documented
+
+- **German README added** (`README.de.md`, CORE-META-09), with a language toggle in both
+  files. The English `README.md` stays canonical.
+- **The README claimed the raw fallback only knows `main`.** It has known `master` as well
+  since 0.3.1 — the CHANGELOG said so, the README did not. Corrected in both places it was
+  stated ("Adding sources" and "Known limitations").
+
 ## [0.3.1] — 2026-09-01
 
 ### Fixed

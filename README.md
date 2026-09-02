@@ -6,6 +6,8 @@
 Install and update Obsidian plugins from any git forge — GitHub, Forgejo, Gitea, or raw
 URLs — including subscribable plugin catalogs, without waiting on the Community Store.
 
+*Auch auf Deutsch verfügbar: [`README.de.md`](README.de.md).*
+
 ## Why this exists
 
 The Community Store depends on GitHub as a single point of failure: when an account gets
@@ -62,9 +64,10 @@ auto-detected from the URL shape — GitHub, Forgejo, and Gitea each expose a sl
 different release/asset API, and the plugin picks the right adapter automatically. For a
 forge without a Gitea-compatible API, the plugin falls back to raw files instead: it
 still takes a **repo URL** (not a direct asset URL), and derives
-`<base>/<owner>/<repo>/raw/main/<file>` for each of `manifest.json`, `main.js`, and
-`styles.css` — there is no branch or tag selection yet, so this fallback only works
-against the repo's default branch, and only if it is named `main`.
+`<base>/<owner>/<repo>/raw/<branch>/<file>` for each of `manifest.json`, `main.js`, and
+`styles.css` — there is no branch or tag selection yet, so this fallback only works against
+the repo's default branch, and only if it is named `main` or `master` (tried in that order;
+the error message always names the `main` attempt, because that is the expected name).
 
 ### Catalogs
 
@@ -146,9 +149,9 @@ No screenshots yet — a follow-up pass will add them via the `readme-shots` wor
 - **Installing a plugin runs third-party code with full Obsidian API access.** The
   install/update confirm dialog is the only gate — there is no sandboxing, permission
   model, or code review beyond what you do yourself before confirming.
-- **The raw fallback assumes the default branch is named `main`.** There is no branch or
-  tag selection yet; a repo whose default branch has a different name cannot be installed
-  via the raw path (see "Adding sources" above).
+- **The raw fallback only knows `main` and `master`.** There is no branch or tag
+  selection yet; a repo whose default branch is named anything else cannot be installed via
+  the raw path (see "Adding sources" above).
 - **Plugin ids are restricted to `^[a-z0-9][a-z0-9-_]{0,63}$`**, which is stricter than
   Obsidian itself — no uppercase letters and no dots. A manifest with an otherwise valid
   but non-matching id is rejected.
