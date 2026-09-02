@@ -53,6 +53,43 @@ Der installierte Prüfling heißt `asl-smoke-target` — eine id, die kein echte
 trägt. Was der Smoke installiert, landet als echter Ordner unter `.obsidian/plugins/`,
 und ein Namenszusammenstoß wäre ein Löschvorgang am falschen Ort.
 
+## Läuft der Lauf gegen den eigenen Stand? (Herkunfts-Guard)
+
+Vor dem ersten Prüfpunkt steht seit dem 2026-09-02 `requireEigenerBuild`
+(`tools/obsidian-cdp/vault.ts`, dritter Einbau im Workspace). Er beantwortet die Frage, gegen
+die `manifest.version` **strukturell blind** ist: Arbeitsstand und zuletzt deployter Build
+tragen dieselbe Nummer.
+
+**Der Anlass ist in diesem Repo gemessen worden, nicht importiert.** `npm run smoke:gui`
+deployt **nicht** — nur `--setup` tut das. Beim Bau von E9 trug der Vault noch das alte
+`main.js`; der Prüfpunkt blieb rot, obwohl der Fix im Quelltext stand, und die Zeit ging für
+die Suche nach einem Fehler drauf, den es nicht gab.
+
+Der geprüfte Pfad kommt aus der **laufenden Instanz** (`app.vault.adapter.basePath` +
+`app.vault.configDir`), nicht aus `stagingVaultDir(REPO_NAME)`: der Treiber dockt per
+`--vault` an ein beliebiges Fenster an. Der Guard sitzt **vor** dem Plugin-Neuladen, damit ein
+Abbruch den Vault unberührt lässt.
+
+### Gegenprobe (2026-09-02, alle fünf Ausgänge gemessen)
+
+Ein Guard ohne Gegenprobe ist eine Behauptung — und diese Sorte Prüfung versagt genau in dem
+Fall, für den sie gebaut wurde.
+
+| Ausgang | hergestellt durch | gemessen |
+|---|---|---|
+| `deployt` | Normalzustand | läuft, 2/2 grün |
+| `fremd` | Byte an die Vault-`main.js` gehängt | **Abbruch**, exit 1 — „im Vault: 39.490 Bytes / gebaut: 39.455 Bytes" |
+| `fehlt` | Vault-`main.js` beiseite | **Abbruch**, exit 1 |
+| `store-installiert` | `nosourcemap`-Suffix **und** Repo-`main.js` beiseite | **Abbruch**, exit 1 |
+| `ungeklaert` | nur Repo-`main.js` beiseite | **Warnung, exit 0** — der Lauf lief weiter (2/2) |
+
+⚠️ Die letzten beiden sind nur erreichbar, wenn die **Repo**-`main.js` fehlt: solange sie da
+ist, entscheidet der sha1-Vergleich und liefert ausschließlich `deployt`/`fremd`. Wer das
+nicht weiß, prüft zwei Ausgänge und hält es für vier.
+
+Die Warnung aus `ungeklaert` steht bewusst **hinter** der Bilanz, nicht oben im Protokoll —
+oben scrollt sie aus dem Blick, genau wie die Meldung, die diesen Guard nötig machte.
+
 ## Prüfpunkte
 
 ### A — Der Store lebt im Einstellungs-Tab

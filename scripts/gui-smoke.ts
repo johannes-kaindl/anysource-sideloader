@@ -74,7 +74,7 @@ import {
   releaseAlwaysOnTop,
   requireVisible,
 } from "../../tools/obsidian-cdp/cdp.js";
-import { buildVault, stagingVaultDir } from "../../tools/obsidian-cdp/vault.js";
+import { buildVault, requireEigenerBuild, stagingVaultDir } from "../../tools/obsidian-cdp/vault.js";
 import {
   OWNER,
   REPOS,
@@ -1924,6 +1924,9 @@ async function main(): Promise<void> {
   // zurückschreiben kann.
   let previousSettings: string | null = null;
   let configDir = ".obsidian";
+  /** `ungeklaert` bricht nicht ab, darf aber auch nicht im Protokoll nach oben rutschen —
+   *  die Warnung gehoert neben die Bilanz, wo sie noch gelesen wird. */
+  const herkunftsWarnungen: string[] = [];
 
   try {
     await cdp.mitschnitt((zeile) => { console.log(`  [renderer] ${zeile}`); });
@@ -1952,6 +1955,32 @@ async function main(): Promise<void> {
       );
     }
     console.log(`Vault: ${vaultName}`);
+
+    // ── Laeuft dieser Lauf ueberhaupt gegen den eigenen Stand? ────────────
+    //
+    // VOR dem Neuladen, damit ein Abbruch den Vault unberuehrt laesst.
+    //
+    // `manifest.version` ist dafuer strukturell blind: der Arbeitsstand traegt dieselbe
+    // Nummer wie der zuletzt deployte. Gemessen am 2026-09-02 in genau diesem Repo —
+    // `npm run smoke:gui` deployt NICHT (nur `--setup` tut das), der Vault trug noch das
+    // alte `main.js`, und der neue Pruefpunkt E9 blieb rot, obwohl der Fix im Quelltext
+    // stand. Die Zeit ging fuer die Suche nach einem Fehler drauf, den es nicht gab.
+    //
+    // ⚠️ Der Pfad kommt aus der LAUFENDEN Instanz, nicht aus `stagingVaultDir(REPO_NAME)`:
+    // der Treiber dockt per `--vault` an ein beliebiges Fenster an, und ein Check gegen den
+    // Staging-Pfad pruefte dann eine Datei, die mit dem Lauf nichts zu tun hat. Geprueft
+    // wird, was gemessen wird.
+    const ort = await cdp.evaluate<{ basePath: string; configDir: string }>(`
+      return { basePath: app.vault.adapter.basePath, configDir: app.vault.configDir };
+    `);
+    requireEigenerBuild(
+      join(ort.basePath, ort.configDir, "plugins", PLUGIN_ID, "main.js"),
+      // Der zweite Pfad ist der Unterschied zwischen "belegt" und "nicht widerlegt": ohne
+      // ihn kann der Guard nur eine Store-Installation ausschliessen, nicht den eigenen
+      // Stand nachweisen.
+      join(REPO_ROOT, "main.js"),
+      (meldung) => { herkunftsWarnungen.push(meldung); },
+    );
 
     // Das Plugin NEU LADEN, bevor irgendetwas gemessen wird. `npm run deploy` ersetzt nur
     // die Dateien; die laufende Instanz behält den alten Code im Speicher — ohne diesen
@@ -2038,6 +2067,7 @@ async function main(): Promise<void> {
 
   const failed = results.filter((r) => !r.passed);
   console.log(`${results.length - failed.length}/${results.length} gruen`);
+  for (const w of herkunftsWarnungen) console.log(w);
   if (failed.length > 0) {
     console.log("Rot:");
     for (const r of failed) console.log(`  - ${r.name}: ${r.detail}`);
