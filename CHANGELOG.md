@@ -6,7 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [Unreleased]
+### Fixed
+
+- **Text you are typing in Settings is no longer discarded when the tab redraws.** The
+  Settings tab redraws on several occasions — a catalog finished loading, the set of
+  installed plugins changed on disk, after any flow. Until now the text of the two "Add"
+  fields (catalog URL, token host) lived in a closure that is rebuilt empty on every
+  redraw: type while a catalog is loading, press **Add**, and nothing was added. The
+  window is as long as the catalog takes to load — seconds over a slow connection.
+- **The cursor no longer jumps to the end of the field on a redraw.** Measured on Obsidian
+  1.13.7: the input element is replaced and Obsidian restores the focus itself, but the
+  caret position was lost (34 instead of 8). Correcting a URL in the middle of the text
+  therefore continued at the end. The value, the focus and the caret now all survive.
 
 ### Documented
 
