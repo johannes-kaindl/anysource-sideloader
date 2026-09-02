@@ -147,12 +147,47 @@ export class SideloaderSettingTab extends PluginSettingTab {
     return catalogEntryState(entry, this.installiert.get(entry.id) ?? null, this.host.settings.plugins);
   }
 
-  /** Status-Indikator nach UI-STANDARD §8: Form UND Farbe UND Klasse UND aria-label. */
-  private status(el: HTMLElement, state: "ok" | "warning" | "error", label: string): void {
-    const icons = { ok: "circle-check", warning: "alert-triangle", error: "circle-x" } as const;
+  /** Status-Indikator nach UI-STANDARD §8: Form UND Farbe UND Klasse UND aria-label.
+   *
+   *  `checking` ist der vierte Zustand des Katalogs. Er kommt hier NICHT an die Zeilen,
+   *  sondern genau einmal an die Pruef-Schaltflaeche: die Pruefung ist ein Vorgang ueber
+   *  ALLE Plugins (`checkAllUpdates`), ein Spinner je Zeile behauptete ein Plugin-genaues
+   *  „laeuft gerade", das es nicht gibt. */
+  private status(el: HTMLElement, state: "ok" | "warning" | "error" | "checking", label: string): void {
+    const icons = {
+      ok: "circle-check", warning: "alert-triangle", error: "circle-x", checking: "loader",
+    } as const;
     const wrap = el.createSpan({ cls: `asl-status is-${state}`, attr: { "aria-label": label } });
     setIcon(wrap.createSpan({ cls: "asl-status-icon" }), icons[state]);
     wrap.createSpan({ cls: "asl-status-label", text: label });
+  }
+
+  /** Traeger des Lade-Zustands an der Pruef-Zeile und der Zustand selbst.
+   *
+   *  Der Zustand haengt am TAB, nicht am Element: der Tab wird waehrend der Pruefung neu
+   *  gezeichnet (`aktualisieren()` haengt am selben Befehl), und ein nur am Element
+   *  gehaltener Zustand waere danach verloren. */
+  private pruefStatusEl: HTMLElement | null = null;
+  private pruefungLaeuft = false;
+
+  /** Von aussen angestossener Lade-Zustand — `main.ts` klammert den Befehl damit ein.
+   *
+   *  Warum es ihn gibt, ist gemessen: `checkAllUpdates` ruft sequenziell ab, und die 22
+   *  Plugins des produktiven Vaults brauchen 1,8 s gegen die eigene Forge im LAN, gegen
+   *  GitHub hochgerechnet 6,7 s. So lange sah man nach dem Klick nichts.
+   *
+   *  ⚠️ Bewusst KEIN `setDisabled` als Rueckmeldung — siehe die Warnung an der
+   *  Knopf-Zeile: genau der Aufruf friert die App ein. */
+  setzePruefungLaeuft(laeuft: boolean): void {
+    this.pruefungLaeuft = laeuft;
+    this.zeichnePruefStatus();
+  }
+
+  private zeichnePruefStatus(): void {
+    const el = this.pruefStatusEl;
+    if (!el) return;
+    el.empty();
+    if (this.pruefungLaeuft) this.status(el, "checking", STRINGS.settings.checkRunning);
   }
 
   private issuesUrl(ref: RepoRef): string {
@@ -222,6 +257,10 @@ export class SideloaderSettingTab extends PluginSettingTab {
         name: STRINGS.settings.checkUpdates.name,
         desc: STRINGS.settings.checkUpdates.desc,
         render: (row: Setting) => {
+          // Der Traeger wird bei JEDEM Zeichnen frisch gesetzt und sofort befuellt — so
+          // ueberlebt ein laufender Zustand das Neuzeichnen der Zeile.
+          this.pruefStatusEl = row.controlEl.createSpan({ cls: "asl-check-status" });
+          this.zeichnePruefStatus();
           row.addButton((btn) =>
             btn.setButtonText(STRINGS.settings.checkUpdatesButton).onClick(() => {
               // ⚠️ Hier NICHT den Flow direkt aufrufen und NICHT `setDisabled` setzen.
@@ -233,16 +272,29 @@ export class SideloaderSettingTab extends PluginSettingTab {
               // JS-Endlosschleife, sondern etwas unterhalb davon; der Zustand blieb
               // bestehen, bis Obsidian neu gestartet wurde.
               //
-              // Zwei Verdaechtige, beide hier entfernt statt einer davon: (a) der Flow lief
-              // im Kontext des Einstellungs-FENSTERS, waehrend derselbe Flow im
-              // Workspace-Fenster nachweislich durchlaeuft (GUI-Smoke G4), und (b)
-              // `ButtonComponent.setDisabled()` im Klick-Handler — dieselbe Bauart hing
-              // schon einmal in einem Nachbar-Repo (koda-agent, 2026-08-06, dort nie
-              // reproduziert). WELCHER der beiden es ist, ist NICHT geklaert; die Task dazu
-              // liegt im Cockpit. Bis dahin gilt die vorsichtige Fassung.
+              // 2026-09-02 in sieben Laeufen getrennt (Belege in `docs/SMOKE.md` § Freeze).
+              // Das Ergebnis widerlegt die urspruengliche Frage „welcher der beiden war es":
+              // KEINER der Verdaechtigen friert allein ein.
               //
-              // Der Befehl fuehrt denselben Ablauf im Workspace-Kontext aus — dort, wo er
-              // gemessen funktioniert.
+              //   Flow im Settings-Fenster + `setDisabled(false)` im `.finally()`  → FRIERT (2×)
+              //   Flow im Settings-Fenster + `setDisabled(true)` allein            → laeuft
+              //   Flow im Settings-Fenster ohne jedes `setDisabled`                → laeuft
+              //   Flow im Settings-Fenster + `setDisabled(false)` per `setTimeout` → laeuft
+              //   Flow im Settings-Fenster + `toggleClass` im `.finally()`         → laeuft
+              //   Flow ueber den Befehl    + `setDisabled(false)` per `setTimeout` → laeuft
+              //
+              // Die beiden letzten Zeilen sind der Schluessel: gegenueber dem Defektfall
+              // unterscheidet sich die eine nur im INHALT des `finally` (toggleClass statt
+              // setDisabled), die andere nur im ZEITPUNKT (Timer statt Microtask). Beide
+              // laufen. Ausloeser ist damit genau die Konjunktion — `setDisabled` im
+              // Microtask des Flow-Promise, im Einstellungs-Fenster.
+              //
+              // Deshalb bleibt es beim Befehl: er fuehrt denselben Ablauf im
+              // Workspace-Kontext aus, und die Rueckmeldung an den Nutzer ist der
+              // `is-checking`-Indikator (§8) statt einer gesperrten Schaltflaeche. Eine
+              // DOM-Aenderung aus dem `finally` heraus ist erlaubt und gemessen
+              // unbedenklich — `setDisabled` in dieser Position ist es nicht.
+              //
               // `app.commands` ist in `obsidian.d.ts` nicht deklariert (wie `app.plugins`,
               // das dieses Repo an anderer Stelle schon so nutzt): schmales lokales
               // Interface statt `any`, mit Form-Pruefung vor dem Aufruf.

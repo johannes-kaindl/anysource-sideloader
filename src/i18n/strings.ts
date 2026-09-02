@@ -26,6 +26,7 @@ export const STRINGS = {
       desc: "Compares every tracked plugin against the newest release of its source. Only plugins you track are checked — track them under \"Browse catalogs\" below.",
     },
     checkUpdatesButton: "Check now",
+    checkRunning: "Checking for updates…",
     sectionUpdates: "Updates",
     sectionInstalled: "Installed plugins",
     sectionBrowse: "Browse catalogs",

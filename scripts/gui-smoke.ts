@@ -1241,16 +1241,45 @@ const SECTIONS: Section[] = [
 
         if (tokenBedienbar) {
           const host = new URL(forge.giteaBaseUrl).host;
-          await stelle.cdp.evaluate(
+          const eingabeSpur = await stelle.cdp.evaluate<{ nachEingabe: string; nachBlur: string; selbesFeld: boolean; versuche: number } | false>(
             stelle.inRoot(`
               const row = [...root.querySelectorAll(".anysource-sideloader-list-row")]
                 .find((r) => [...r.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"));
-              const input = row?.querySelector("input");
-              if (!input) return false;
-              input.value = ${JSON.stringify(`https://${host}/owner/repo`)};
-              input.dispatchEvent(new Event("input", { bubbles: true }));
-              await new Promise((r) => setTimeout(r, 200));
-              return true;
+              // Der Wert wird gesetzt, BIS er stehen bleibt.
+              //
+              // Gemessen 2026-09-02: zwischen Eingabe und Klick zeichnet der Tab die Zeile
+              // neu (der in E4 eingetragene Katalog wird geladen und stoesst refresh() an).
+              // Danach ist das Eingabefeld ein ANDERES, leeres Element — der Klick auf
+              // "Add host" traf dann ein leeres Feld, und E5 war rot, obwohl am Pruefling
+              // nichts fehlte. Sichtbar wurde das erst an selbesFeld: false; die naechst-
+              // liegende Erklaerung (die Liste uebernehme erst bei blur) war falsch und ist
+              // widerlegt: ohne blur passiert genau dasselbe.
+              //
+              // ⚠️ Der Produktbefund dahinter steht als eigene Aufgabe: ein Neuzeichnen
+              // verwirft eine laufende Eingabe — das trifft auch einen Nutzer, der tippt,
+              // waehrend der Katalog fertig laedt.
+              const setze = () => {
+                const r = [...root.querySelectorAll(".anysource-sideloader-list-row")]
+                  .find((x) => [...x.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"));
+                const i = r?.querySelector("input");
+                if (!i) return null;
+                i.value = ${JSON.stringify(`https://${host}/owner/repo`)};
+                i.dispatchEvent(new Event("input", { bubbles: true }));
+                return i;
+              };
+              let feld = setze();
+              if (!feld) return false;
+              let versuche = 0;
+              for (; versuche < 10; versuche++) {
+                await new Promise((r) => setTimeout(r, 150));
+                const noch = [...root.querySelectorAll(".anysource-sideloader-list-row")]
+                  .find((x) => [...x.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"))
+                  ?.querySelector("input");
+                if (noch === feld && noch.value) break;   // stabil — jetzt darf geklickt werden
+                feld = setze();
+                if (!feld) return false;
+              }
+              return { nachEingabe: feld.value, nachBlur: feld.value, selbesFeld: true, versuche };
             `),
           );
           await clickReal(
@@ -1281,10 +1310,33 @@ const SECTIONS: Section[] = [
               };
             `),
           );
+          // Bleibt die Liste leer, sagt „hostSecrets: []" nicht, WORAN es lag. Die drei
+          // Stufen davor trennen: gab es die Zeile, kam der Wert im Feld an, hat der Klick
+          // getroffen. Ohne das ist ein roter E5 nicht diagnostizierbar (gemessen
+          // 2026-09-02: im --section-settings-Lauf rot, im vollen Lauf gruen).
+          const spur =
+            Array.isArray(hosts) && hosts.length > 0
+              ? null
+              : await stelle.cdp
+                  .evaluate<{ zeilen: number; mitAddHost: number; feldWert: string | null }>(
+                    stelle.inRoot(`
+                      const rows = [...root.querySelectorAll(".anysource-sideloader-list-row")];
+                      const row = rows.find((r) => [...r.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host"));
+                      return {
+                        zeilen: rows.length,
+                        mitAddHost: rows.filter((r) => [...r.querySelectorAll("button")].some((b) => b.textContent.trim() === "Add host")).length,
+                        feldWert: row?.querySelector("input")?.value ?? null,
+                      };
+                    `),
+                  )
+                  .catch(() => null);
           check(
             "E5 Token-Host normalisiert (nur host:port), Zeile ohne Klartext-Token",
             Array.isArray(hosts) && hosts[0] === host && zeile !== null && !zeile.klartext,
-            `hostSecrets: ${JSON.stringify(hosts ?? [])} · Zeile: „${zeile?.text ?? "(fehlt)"}“ · Klartext: ${zeile?.klartext ?? "?"}`,
+            `hostSecrets: ${JSON.stringify(hosts ?? [])} · Zeile: „${zeile?.text ?? "(fehlt)"}“ · ` +
+              `Klartext: ${zeile?.klartext ?? "?"}` +
+              (spur ? ` · Spur: ${spur.zeilen} Listen-Zeilen, davon ${spur.mitAddHost} mit „Add host“, Feld: ${JSON.stringify(spur.feldWert)}` : "") +
+              (spur ? ` · Eingabe: ${JSON.stringify(eingabeSpur)}` : ""),
           );
         } else {
           skipped("E5 Token-Host + SecretComponent", "die Bedienung fehlt bereits (E3 rot) — der Ablauf hätte keinen Gegenstand");
@@ -1338,6 +1390,56 @@ const SECTIONS: Section[] = [
         // eingefrorener Renderer laesst JEDES folgende `evaluate` in seine Frist laufen,
         // der Punkt wird also rot, ohne dass man ihm etwas beibringen muss.
         await clearNotices(cdp);
+
+        // ── Vorbereitung fuer E8: der Lade-Zustand ist nur sichtbar, solange wirklich
+        // abgerufen wird. Ohne getrackte Plugins kehrt der Flow ohne einen einzigen
+        // Netzabruf zurueck ("nothing tracked") — der Spinner existierte dann fuer den
+        // Bruchteil eines Frames, und ein gruener Punkt hiesse gar nichts.
+        const owner = new URL(forge.giteaBaseUrl).pathname.split("/").filter(Boolean)[0] ?? "smoke";
+        await writeSettings(cdp, {
+          // Vier Runden ueber die drei Repos: zwoelf sequenzielle Abrufe. Mit nur dreien war
+          // der Vorgang gemessen nach ~10 ms vorbei (2 Sampler-Frames) — das genuegte zwar,
+          // haengt aber an der Tagesform der Maschine. Zwoelf machen den Punkt belastbar,
+          // ohne den Lauf spuerbar zu verlaengern.
+          plugins: [0, 1, 2, 3].flatMap((runde) =>
+            ["target", "nosums", "rawplugin"].map((repo) => ({
+            id: `asl-probe-${runde}-${repo}`,
+            repoUrl: forge.repoUrl(repo),
+            ref: { kind: "gitea", baseUrl: forge.giteaBaseUrl, owner, repo },
+            installedVersion: "0.0.1",
+            availableVersion: null,
+            addedFrom: "url",
+            })),
+          ),
+        });
+
+        // Sampler VOR dem Klick, engmaschig: gegen die lokale Gegenstelle ist die Pruefung
+        // in Millisekunden durch. Ein einzelner Blick "waehrend des Laufs" trifft entweder
+        // den Zustand davor oder den danach und meldet beides Mal gruen bzw. rot, ohne den
+        // Vorgang gesehen zu haben (Lesson 2026-09-02, mailstone). Gemessen wird deshalb
+        // der ganze Verlauf.
+        await stelle.cdp.evaluate(
+          stelle.inRoot(`
+            window.__aslProbe = [];
+            window.__aslProbeTimer = setInterval(() => {
+              const el = root.querySelector(".asl-check-status .asl-status");
+              if (!el) { window.__aslProbe.push(null); return; }
+              const svg = el.querySelector("svg");
+              // Die Form steckt in der Lucide-Klasse des SVG, nicht in einem Attribut:
+              // setIcon setzt im echten Obsidian KEIN data-icon (das tut nur der
+              // Test-Mock) — die erste Fassung dieses Punkts mass deshalb loader: 0,
+              // waehrend das richtige Symbol dastand.
+              window.__aslProbe.push({
+                checking: el.classList.contains("is-checking"),
+                icon: svg ? String(svg.getAttribute("class") ?? "") : "",
+                anim: svg ? getComputedStyle(svg).animationName : null,
+                aria: el.getAttribute("aria-label"),
+              });
+            }, 5);
+            return true;
+          `),
+        );
+
         const geklickt = await clickReal(
           stelle.cdp,
           stelle.el(`[...root.querySelectorAll("button")].find((b) => b.textContent.trim() === "Check now")`),
@@ -1360,6 +1462,50 @@ const SECTIONS: Section[] = [
           geklickt && lebtSettings === "ja" && lebtWorkspace === "ja",
           `Klick getroffen: ${geklickt} · Einstellungen antwortet: ${lebtSettings} · ` +
             `Workspace antwortet: ${lebtWorkspace}`,
+        );
+
+        // ── E8: der Lade-Zustand (UI-STANDARD §8, `is-checking`).
+        //
+        // Die strukturelle Haelfte steht in `tests/obsidian/settings-tab.test.ts` — sie
+        // beweist, dass der Tab den Indikator BAUT. Ob Obsidian ihn zeichnet und ob er
+        // sich bewegt, kann nur hier gemessen werden.
+        //
+        // Vier getrennte Fragen, weil sie an vier verschiedene Enden schicken: war er da,
+        // trug er die richtige Form, bewegte er sich, und ist er danach wieder weg. Der
+        // letzte Punkt ist kein Detail: ein Spinner, der stehen bleibt, behauptet dauerhaft
+        // einen laufenden Abruf und ist schlimmer als gar keine Anzeige.
+        interface ProbeFrame { checking: boolean; icon: string | null; anim: string | null; aria: string | null }
+        const verlauf = await stelle.cdp
+          .evaluate<{ frames: number; mitZustand: number; loader: number; animiert: number; ariaFehlt: number; endeLeer: boolean }>(
+            `
+            clearInterval(window.__aslProbeTimer);
+            const p = (window.__aslProbe ?? []);
+            const an = p.filter((f) => f && f.checking);
+            return {
+              frames: p.length,
+              mitZustand: an.length,
+              loader: an.filter((f) => /loader/.test(f.icon ?? "")).length,
+              animiert: an.filter((f) => f.anim && f.anim !== "none").length,
+              ariaFehlt: an.filter((f) => !f.aria).length,
+              endeLeer: p.length > 0 && p[p.length - 1] === null,
+            };
+          `,
+          )
+          .catch(() => null);
+        void ({} as ProbeFrame);
+        check(
+          "E8 „Check now“ zeigt waehrend des Laufs einen bewegten is-checking-Indikator und raeumt ihn wieder ab",
+          verlauf !== null &&
+            verlauf.mitZustand > 0 &&
+            verlauf.loader === verlauf.mitZustand &&
+            verlauf.ariaFehlt === 0 &&
+            verlauf.animiert > 0 &&
+            verlauf.endeLeer,
+          verlauf === null
+            ? "der Renderer antwortete nicht (siehe E7)"
+            : `Frames: ${verlauf.frames} · davon mit Zustand: ${verlauf.mitZustand} · ` +
+              `davon loader: ${verlauf.loader} · animiert: ${verlauf.animiert} · ` +
+              `ohne aria-label: ${verlauf.ariaFehlt} · am Ende abgeraeumt: ${verlauf.endeLeer}`,
         );
 
         check(

@@ -119,6 +119,7 @@ Plugin still überschreiben konnte.
 | E5 | Token-Host wird auf `host[:port]` normalisiert; die Zeile zeigt **kein Klartext-Token** |
 | E6 | Der Toggle landet in `data.json`, nicht nur im Speicher |
 | E7 | Der Klick auf „Check now" **friert die App nicht ein** |
+| E8 | Der Klick zeigt einen **bewegten** `is-checking`-Indikator und räumt ihn wieder ab |
 
 E2/E3 messen die **Bedienung**, nicht den Namen: ein Item mit Beschriftung und ohne Knopf
 sieht auf einem Screenshot vollständig aus und ist es nicht. E4/E5 werden übersprungen,
@@ -138,6 +139,24 @@ der Smoke lief grün durch. ⚠️ Gemessen wird **9 Sekunden nach** dem Klick u
 Node-Seite: der Freeze trat erst ein, als der Netzabruf zurückkam, und die erste Fassung des
 Punkts maß sofort — sie blieb im Defektzustand grün. Gefunden hat das die Gegenprobe, nicht
 der Lauf.
+
+**E8 misst den Lade-Zustand — und misst ihn als Verlauf, nicht als Blick.** Gegen die
+lokale Gegenstelle ist eine Prüfung in Millisekunden durch; ein einzelner Blick „während des
+Laufs" trifft entweder den Zustand davor oder den danach und meldet in beiden Fällen etwas,
+das er nicht gesehen hat. Deshalb läuft ein 5-ms-Sampler über den ganzen Vorgang, und der
+Punkt trennt vier Fragen, die an vier verschiedene Enden schicken: **war** der Indikator da,
+trug er die **Form** (`loader`), **bewegte** er sich (`animation-name`), und ist er danach
+wieder **weg**. Die letzte Frage ist kein Detail — ein Spinner, der stehen bleibt, behauptet
+dauerhaft einen laufenden Abruf und ist schlechter als gar keine Anzeige.
+
+⚠️ Damit der Punkt etwas misst, trägt er zwölf Plugins ein, bevor er klickt: ohne getrackte
+Plugins kehrt der Flow ohne einen einzigen Netzabruf zurück („nothing tracked"), und der
+Indikator existierte für den Bruchteil eines Frames. Mit dreien waren es gemessen 2 Frames —
+genug, aber von der Tagesform der Maschine abhängig; mit zwölfen sind es 3–5.
+
+⚠️ **`setIcon` setzt im echten Obsidian kein `data-icon`** — das tut nur der Test-Mock. Die
+erste Fassung von E8 las genau dieses Attribut und meldete `loader: 0`, während das richtige
+Symbol dastand. Gemessen wird die Lucide-Klasse des `<svg>`.
 
 Der Schlüsselbund wird **nicht** beschrieben: `app.secretStorage.setSecret` schriebe in den
 Schlüsselbund des Rechners, und ein Messwerkzeug, das dort etwas hinterlässt, ändert seinen
@@ -207,6 +226,7 @@ gelten. Ohne Netz `übersprungen`.
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
+| 2026-09-02 (is-checking) | 1.13.7 | **40/40** — E8 neu; E5 war im `--section settings`-Lauf rot und im vollen grün, jetzt eigenständig | Zwei Gegenproben, sauber getrennt: Icon verfälscht → E8 rot über `loader: 0` (animiert blieb 4) · CSS-Animation entfernt → E8 rot über `animiert: 0` (loader blieb 5); sonst kein Punkt mitgefallen |
 | 2026-09-02 (0.3.0) | 1.13.7 | **39/39** — Hub aufgelöst, A/C/G messen jetzt im Einstellungs-Tab | Gegenprobe: ein eigenes `<h3>` eingebaut → **genau A2** rot, sonst keiner |
 | 2026-09-01 (0.2.1) | 1.13.7 | **44/44** — E7 neu | Gegenprobe: alter Knopf-Code zurück → **E7 rot**, sonst keiner; die erste Fassung von E7 blieb dabei grün und musste korrigiert werden |
 | 2026-09-01 (0.2.0) | 1.13.7 | **43/43** — Abschnitt G neu | Gegenprobe: Platte-Blick ausgebaut → **G1–G5 rot (0/5)**, Abschnitt C unverändert 13/13; Vorhersage traf exakt |
@@ -267,6 +287,78 @@ Defekte hat, misst wahrscheinlich das Werkzeug etwas anderes, als es behauptet.*
   beheben es. Gefunden nur, weil der Prüfpunkt seine drei Stufen getrennt meldet (Klick
   getroffen / Speicher / Platte) statt nur „rot“.
 
+
+## Freeze: die Ursache, getrennt (2026-09-02)
+
+Der „Check now"-Knopf fror am 2026-09-01 die gesamte App ein. Der Fix entfernte **zwei**
+Verdächtige gleichzeitig, weil der Knopf produktiv beim Nutzer stand — welcher es war, blieb
+offen. Sieben Läufe in einer isolierten Zweitinstanz haben es getrennt.
+
+**Der Messaufbau zuerst, weil ohne ihn nichts davon gilt.** Ein Freeze-Test tötet die ganze
+Obsidian-Instanz; an derselben hängen aber regelmäßig fremde Sessions. Gemessen wurde deshalb
+in einer **zweiten Obsidian-Instanz mit eigenem `--user-data-dir` und eigenem Debug-Port**
+(9333). Sie läuft parallel zur normalen Instanz, und ein App-weiter Freeze bleibt in ihr
+eingesperrt — belegt: während die Testinstanz tot war, antworteten alle drei Fenster der
+regulären Instanz auf `Runtime.evaluate` in Millisekunden.
+
+**Positivkontrolle vor der Trennung.** Zwei Varianten, die beide „läuft" melden, sind
+wertlos, wenn der Aufbau den Defekt gar nicht herstellen kann. Der Defektstand wurde deshalb
+zuerst reproduziert — **zweimal**, mit identischem Bild (beide Renderer ohne Antwort).
+
+| Variante | `setDisabled(true)` beim Klick | Flow läuft im | `setDisabled(false)` steht in | Ergebnis |
+|---|---|---|---|---|
+| **P** (Defektstand) | ja | Einstellungs-Fenster | **`.finally()` des Promise** | **friert ein (2×)** |
+| A | ja | Workspace (über den Befehl) | `setTimeout` | läuft |
+| B | nein | Einstellungs-Fenster | — | läuft |
+| E | ja | Einstellungs-Fenster | — | läuft |
+| F | ja | Einstellungs-Fenster | `.finally()`, aber `toggleClass` statt `setDisabled` | läuft |
+| G | ja | Einstellungs-Fenster | `setTimeout` | läuft |
+
+**Das Ergebnis widerlegt die Frage, mit der die Aufgabe gestellt war.** Sie lautete „welcher
+der beiden Verdächtigen war es" und setzte voraus, dass es einer ist. Keiner der beiden
+friert allein ein: weder der Flow im Fenster-Kontext (B, E) noch `setDisabled` als solches
+(A, G).
+
+Die Ursache benennen F und G gemeinsam, weil sie sich vom Defektstand in **je genau einem**
+Detail unterscheiden: F nur im **Inhalt** des `finally` (`toggleClass` statt `setDisabled`),
+G nur im **Zeitpunkt** (Timer statt Microtask). Beide laufen. Auslöser ist damit die
+Konjunktion — **`ButtonComponent.setDisabled()`, aufgerufen im Microtask des Flow-Promise,
+im Einstellungs-Fenster.**
+
+**Folge für den Code:** Der Knopf bleibt beim registrierten Befehl, und die Rückmeldung ist
+der `is-checking`-Indikator (E8) statt einer gesperrten Schaltfläche. Eine DOM-Änderung aus
+dem `finally` heraus ist erlaubt und gemessen unbedenklich (F) — `setDisabled` in dieser
+Position ist es nicht.
+
+⚠️ **Was NICHT gemessen ist:** warum. Der Aufbau sagt, welche Kombination den Zustand
+herstellt, nicht was unterhalb von JS dabei blockiert (`Debugger.pause` lieferte schon 2026-09-01
+keinen laufenden Stack). Für die Praxis reicht die Regel; für eine Meldung an Obsidian wäre
+das der nächste Schritt.
+
+**Für das Nachbar-Repo — und was ein Blick in dessen Code korrigiert hat.** Die Aufgabe war
+mit dem Stand gestellt, `koda-agent` habe seinen Freeze vom 2026-08-06 „nie reproduzieren
+können". Am Code nachgelesen (`koda-agent/src/obsidian/settings.ts:456`) ist man dort weiter:
+die Regel „`setDisabled()` aus dem Settings-Fenster friert ein" wurde am **2026-08-08
+widerlegt** — derselbe Aufruf lief dort und in `vault-rag` folgenlos —, und gemessen ist ein
+**anderes** engeres Muster: die Kombination mit `setIcon`/`setTooltip` auf einem Span
+derselben Zeile.
+
+Beide Messungen zeigen damit dasselbe Bauprinzip und **verschiedene** zweite Zutaten:
+
+- `koda-agent`: `setDisabled` **+ `setIcon`/`setTooltip` auf einem Span derselben Zeile**
+- hier: `setDisabled` **+ Aufruf im Microtask des Flow-Promise**
+
+Der belastbare gemeinsame Satz ist deshalb nicht „`setDisabled` friert ein" (das ist in
+beiden Repos widerlegt: E hier, die Gegenprobe vom 08.08. dort), sondern: **`setDisabled` ist
+an App-Freezes in Obsidian 1.13 beteiligt, ist aber nie allein hinreichend — die jeweils
+zweite Bedingung ist gemessen und in beiden Fällen eine andere.** Das ist n=2 für das Prinzip
+und n=1 für jede der beiden konkreten Konjunktionen.
+
+Praktische Folge, die beide Repos teilen: als Rückmeldung auf einen Klick ist `setDisabled`
+die teuerste Form. `koda-agent` nutzt `buttonEl.disabled`, hier ist es der
+`is-checking`-Indikator.
+
+---
 
 ## Was der Umbau auf den Einstellungs-Tab gelehrt hat (2026-09-02)
 

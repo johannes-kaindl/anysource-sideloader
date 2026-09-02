@@ -6,7 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A loading indicator while checking for updates** (`is-checking`, UI-STANDARD §8). The
+  reason is measured, not assumed: `checkAllUpdates` fetches sequentially, and with the 22
+  plugins of the production vault that takes 1.8 s against a self-hosted Forgejo on the LAN
+  and an extrapolated 6.7 s against GitHub (5 samples, 305 ms mean per request). Until now
+  the click produced no visible response at all for that long. Deliberately a single state:
+  the outcome is already reported as a Notice — what was missing was the time in between.
+  Deliberately **not** `setDisabled` (see below).
+
+### Fixed
+
+- **GUI smoke: `E5` was not self-contained.** It was red in `--section settings` and green in
+  a full run. Cause measured: between filling the field and clicking "Add host", the tab
+  redraws (the catalog entered in E4 finishes loading and triggers `refresh()`), leaving a
+  *different*, empty input for the click to hit. The check now re-applies the value until it
+  stays put. ⚠️ The underlying product issue — a redraw discards a keystroke in progress —
+  is tracked separately; it can hit a real user typing while the catalog loads.
+
 ### Documented
+
+- **The freeze cause is no longer open.** The "Check now" freeze of 2026-09-01 was fixed by
+  removing two suspects at once, leaving it unclear which one mattered. Seven runs in an
+  isolated second Obsidian instance separated them: **neither suspect freezes on its own.**
+  The trigger is the conjunction — `ButtonComponent.setDisabled()` called from the
+  *microtask* of the flow promise, inside the settings window. Two variants differing from
+  the defect in exactly one detail each (contents of the `finally`; timer instead of
+  microtask) both run fine. Full table in `docs/SMOKE.md` § Freeze.
 
 - **German README added** (`README.de.md`, CORE-META-09), with a language toggle in both
   files. The English `README.md` stays canonical.

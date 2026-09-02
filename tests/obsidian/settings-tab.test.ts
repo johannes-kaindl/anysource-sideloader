@@ -136,4 +136,75 @@ describe("getSettingDefinitions — Struktur", () => {
     const komponenten = (setting as unknown as { components: unknown[] }).components;
     expect(komponenten.length).toBeGreaterThan(0);
   });
+
+  /** Der Lade-Zustand der Update-Pruefung.
+   *
+   *  Warum es ihn ueberhaupt gibt, ist GEMESSEN und nicht vermutet: `checkAllUpdates`
+   *  ruft die Quellen **sequenziell** ab (`for … await`), und bei den 22 Plugins des
+   *  produktiven Vaults dauert das 1,8 s gegen die eigene Forge im LAN — gegen GitHub
+   *  hochgerechnet 6,7 s (5 Messungen, Schnitt 305 ms je Abruf). Ein Klick ohne jede
+   *  Rueckmeldung liest sich in dieser Zeit als „habe ich getroffen?".
+   *
+   *  Bewusst nur EIN Zustand: das Ergebnis meldet ohnehin eine Notice, der Mangel war
+   *  allein die Zeit dazwischen. UI-STANDARD §8 erlaubt das ausdruecklich („ein Baustein
+   *  mit drei sinnvollen Zustaenden bleibt bei dreien") und bindet nur den NAMEN des
+   *  vierten — `is-checking` — samt Icon `loader`.
+   *
+   *  ⚠️ Bewusst NICHT `setDisabled`: genau dieser Aufruf, aus dem `.finally()` des
+   *  Flow-Promise heraus, fror am 2026-09-01 die gesamte App ein (2026-09-02 in sieben
+   *  Laeufen isoliert, `docs/SMOKE.md` § Freeze). Der Indikator ist deshalb nicht nur
+   *  huebscher als eine gesperrte Schaltflaeche, sondern die einzige gemessen sichere
+   *  Form von Rueckmeldung an dieser Stelle. */
+  describe("Lade-Zustand der Update-Pruefung (UI-STANDARD §8)", () => {
+    function pruefZeile(tab: SideloaderSettingTab): Setting {
+      const zeile = tab
+        .getSettingDefinitions()
+        .find((d) => String((d as { name?: unknown }).name ?? "").startsWith("Check for updates now")) as
+        | { render?: (s: Setting) => void }
+        | undefined;
+      const setting = new Setting(undefined as never);
+      zeile?.render?.(setting);
+      return setting;
+    }
+    /** Der Indikator ist der KANON-Baustein aus §8 (`.asl-status`, vom vorhandenen
+     *  `status()`-Helfer gezeichnet) — gesucht wird deshalb rekursiv, nicht als direktes
+     *  Kind: er sitzt in einem Traeger-Span, den die Zeile beim Umschalten leert. */
+    const indikator = (s: Setting): any =>
+      (s.controlEl as unknown as { querySelectorAll(q: string): any[] }).querySelectorAll(".asl-status")[0];
+
+    it("ruhend zeigt die Zeile keinen Lade-Zustand", () => {
+      // Ruhend steht KEIN Indikator in der Zeile — ein dauerhaft sichtbares, leeres
+      // Status-Symbol behauptete einen Zustand, den es nicht gibt.
+      expect(indikator(pruefZeile(tabFor()))).toBeUndefined();
+    });
+
+    it("waehrend der Pruefung traegt der Indikator Klasse UND Icon UND aria-label", () => {
+      // §8: nie eines ohne die anderen — Farbe allein traegt die Aussage nicht (WCAG 1.4.1).
+      const tab = tabFor();
+      const s = pruefZeile(tab);
+      tab.setzePruefungLaeuft(true);
+      expect(indikator(s)?.hasClass("is-checking")).toBe(true);
+      // Das Icon sitzt im Kind-Span, wie der Kanon-Helfer es baut (`.asl-status-icon`).
+      expect(indikator(s)?.querySelectorAll(".asl-status-icon")[0]?.dataset.icon).toBe("loader");
+      expect(indikator(s)?.getAttribute("aria-label")).toBeTruthy();
+    });
+
+    it("nach der Pruefung ist der Lade-Zustand wieder weg", () => {
+      const tab = tabFor();
+      const s = pruefZeile(tab);
+      tab.setzePruefungLaeuft(true);
+      tab.setzePruefungLaeuft(false);
+      expect(indikator(s)).toBeUndefined();
+    });
+
+    it("ein Neuzeichnen der Zeile behaelt den laufenden Zustand", () => {
+      // Der Tab wird waehrend der Pruefung neu gezeichnet (`aktualisieren()` haengt am
+      // Befehl). Haenge der Zustand nur am alten Element, waere der Spinner danach weg.
+      const tab = tabFor();
+      pruefZeile(tab);
+      tab.setzePruefungLaeuft(true);
+      const frisch = pruefZeile(tab);
+      expect(indikator(frisch)?.hasClass("is-checking")).toBe(true);
+    });
+  });
 });

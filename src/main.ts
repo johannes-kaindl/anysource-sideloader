@@ -87,10 +87,23 @@ export default class AnySourceSideloaderPlugin extends Plugin {
   }
 
   private async runCheckUpdatesCommand(): Promise<void> {
-    await checkUpdatesWithNotices(this.flowContext());
-    // Der Befehl laeuft ausserhalb des Tabs; ohne diesen Anstoss zeigt ein offener Tab
-    // weiter den Stand von vor der Pruefung.
-    this.settingsTab?.aktualisieren();
+    // Der Lade-Zustand klammert den Ablauf: gemessen dauert eine Pruefung mit 22 Plugins
+    // 1,8 s gegen die eigene Forge und hochgerechnet 6,7 s gegen GitHub — ohne Anzeige
+    // liest sich das als „habe ich den Knopf getroffen?".
+    //
+    // Bewusst im `finally`, damit ein Fehlschlag den Spinner nicht stehen laesst. Dass
+    // hier eine DOM-Aenderung aus einem `finally` heraus passiert, ist gemessen
+    // unbedenklich — eingefroren ist am 2026-09-01 ausschliesslich `setDisabled` in
+    // dieser Position (2026-09-02 in sieben Laeufen isoliert, `docs/SMOKE.md` § Freeze).
+    this.settingsTab?.setzePruefungLaeuft(true);
+    try {
+      await checkUpdatesWithNotices(this.flowContext());
+    } finally {
+      this.settingsTab?.setzePruefungLaeuft(false);
+      // Der Befehl laeuft ausserhalb des Tabs; ohne diesen Anstoss zeigt ein offener Tab
+      // weiter den Stand von vor der Pruefung.
+      this.settingsTab?.aktualisieren();
+    }
   }
 
   private async runStartupCheck(): Promise<void> {
