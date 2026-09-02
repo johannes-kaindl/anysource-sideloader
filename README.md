@@ -108,6 +108,11 @@ settings, and the same action is available from the command palette (so you can 
 hotkey). With "Check for updates on startup" enabled, it also runs once shortly after
 Obsidian starts. Updates are never installed without your confirmation.
 
+Sources are queried one after another, so a check takes a moment when you track many
+plugins — measured against a self-hosted Forgejo on the local network, 22 tracked plugins
+take about two seconds, and a remote forge is slower. A spinner next to the button shows
+for as long as the check is running; the result arrives as a notice.
+
 ## Configuration
 
 ### Access tokens

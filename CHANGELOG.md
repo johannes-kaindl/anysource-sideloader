@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Documented
+
+- **Both READMEs now say that a check takes a moment** and that a spinner shows while it
+  runs. The measured numbers are in the CHANGELOG entry for 0.4.0; the README keeps it to
+  what a user needs to expect.
+
 ## [0.4.0] — 2026-09-02
 
 ### Added

@@ -117,6 +117,11 @@ des Plugins, und dieselbe Aktion steht in der Befehlspalette (lässt sich also a
 legen). Ist „Check for updates on startup" aktiv, läuft sie zusätzlich einmal kurz nach dem
 Start von Obsidian. Updates werden nie ohne deine Bestätigung installiert.
 
+Die Quellen werden nacheinander abgefragt, eine Prüfung dauert bei vielen verwalteten Plugins
+also einen Moment — gegen eine selbst gehostete Forgejo im lokalen Netz gemessen: 22 Plugins
+brauchen rund zwei Sekunden, eine entfernte Forge ist langsamer. Solange die Prüfung läuft,
+dreht sich ein Symbol neben dem Knopf; das Ergebnis kommt als Meldung.
+
 ## Konfiguration
 
 ### Zugriffstokens
