@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-02
+
 ### Fixed
 
 - **Text you are typing in Settings is no longer discarded when the tab redraws.** The
