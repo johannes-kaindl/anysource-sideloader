@@ -1,0 +1,190 @@
+{
+  "catalogVersion": 1,
+  "name": "Order from Traces - Obsidian Plugins",
+  "plugins": [
+    {
+      "id": "three-d-codeblocks",
+      "name": "3D Codeblocks",
+      "description": "Render 3D artifacts (GLB, glTF, STL) inline from a code block — orbit, zoom and pan without leaving your note.",
+      "repo": "https://git.jkaindl.de/jkaindl/3d-codeblocks",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "anysource-sideloader",
+      "name": "AnySource Sideloader",
+      "description": "Install and update plugins from any git forge (GitHub, Forgejo, Gitea, raw URLs) with subscribable catalogs.",
+      "repo": "https://git.jkaindl.de/jkaindl/anysource-sideloader",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "health-vitals",
+      "name": "Health Vitals",
+      "description": "Import Apple Health exports and explore your health data in charts and tables.",
+      "repo": "https://git.jkaindl.de/jkaindl/health-vitals",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "audio-interface",
+      "name": "Audio Interface",
+      "description": "Read notes aloud with system voices and export them as WAV with a local, downloadable German voice. No cloud, no account.",
+      "repo": "https://git.jkaindl.de/jkaindl/audio-interface",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "calendar-notes",
+      "name": "Calendar and Contact Notes",
+      "description": "Mirror CalDAV events and CardDAV contacts as notes; the server stays the source of truth.",
+      "repo": "https://git.jkaindl.de/jkaindl/calendar-notes",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "epub-exporter",
+      "name": "EPUB Exporter",
+      "description": "Export a note — or a book note with embedded chapters — as an EPUB.",
+      "repo": "https://git.jkaindl.de/jkaindl/epub-exporter",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "image-to-markdown",
+      "name": "Image to Markdown",
+      "description": "Transcribe images and PDFs in a note to Markdown with a local vision LLM — fully offline, non-destructive, streaming into the sidebar.",
+      "repo": "https://git.jkaindl.de/jkaindl/image-to-markdown",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "json-editor",
+      "name": "JSON Editor",
+      "description": "View and edit JSON and JSONC files in a tree or source view. Comments and formatting in JSONC survive editing. Renders JSON code blocks in Markdown notes.",
+      "repo": "https://git.jkaindl.de/jkaindl/json-editor",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "koda-agent",
+      "name": "Koda",
+      "description": "Agentic vault companion: chat with an assistant that searches and reads your notes, writes only with your approval, and learns through a transparent memory note.",
+      "repo": "https://git.jkaindl.de/jkaindl/koda-agent",
+      "author": "Jay",
+      "tags": []
+    },
+    {
+      "id": "kuro-gamification",
+      "name": "Kuro Gamification",
+      "description": "Neurodivergence-friendly gamification: XP, levels, streaks with freeze tokens, deterministic loot, and lore. Off-by-default for anything that could escalate.",
+      "repo": "https://git.jkaindl.de/jkaindl/kuro-gamification",
+      "author": "Jay",
+      "tags": []
+    },
+    {
+      "id": "llm-lab",
+      "name": "LLM Lab",
+      "description": "Record the local LLM calls your plugins make — stored only inside your vault.",
+      "repo": "https://git.jkaindl.de/jkaindl/llm-lab",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "local-image-generator",
+      "name": "Local Image Generator",
+      "description": "Generate images right in your vault — built-in SD-Turbo on your GPU, or your local Draw Things / A1111 server. Private, on-device, no cloud.",
+      "repo": "https://git.jkaindl.de/jkaindl/local-image-generator",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "mailstone",
+      "name": "Mailstone",
+      "description": "Mail as vault notes: a server-side folder decides what becomes a note. Sends iMIP invitations for calendar-notes.",
+      "repo": "https://git.jkaindl.de/jkaindl/mailstone",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "slide-deck",
+      "name": "Slide Deck",
+      "description": "Turn a Markdown note into a slide deck and export it to PDF or a PNG image series, with live readability checks.",
+      "repo": "https://git.jkaindl.de/jkaindl/slide-deck",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "letterhead",
+      "name": "Letterhead",
+      "description": "Generate professionally formatted business letters (DIN 5008 and modern) from note frontmatter and export them to PDF — via the print dialog on desktop, or the system share sheet on iPhone and iPad.",
+      "repo": "https://git.jkaindl.de/jkaindl/obsidian-letterhead",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "paperize",
+      "name": "Paperize",
+      "description": "Export the active note as a clean, text-selectable vector PDF — just the note's content. Works on desktop, iPhone and iPad.",
+      "repo": "https://git.jkaindl.de/jkaindl/obsidian-paperize",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "transmute",
+      "name": "Transmute",
+      "description": "Search and replace by intent — a local LLM writes the regex, you review every match before it runs.",
+      "repo": "https://git.jkaindl.de/jkaindl/obsidian-transmute",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "paperless-storage",
+      "name": "Paperless Storage",
+      "description": "Embed documents from your paperless-ngx instance directly in your notes.",
+      "repo": "https://git.jkaindl.de/jkaindl/paperless-storage",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "vault-crews",
+      "name": "Vault Crews",
+      "description": "Run autonomous local LLM agent teams (crews) on your vault via LM Studio.",
+      "repo": "https://git.jkaindl.de/jkaindl/vault-crews",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "vault-retrieval",
+      "name": "Vault Retrieval",
+      "description": "On-device retrieval over your vault — related notes, semantic search — plus grounded chat with the LLM endpoint you configure.",
+      "repo": "https://git.jkaindl.de/jkaindl/vault-rag",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "neurovim",
+      "name": "NeuroVim",
+      "description": "Learn Vim by playing a cyberpunk spy-thriller. Missions are Vim exercises you fix in real notes.",
+      "repo": "https://git.jkaindl.de/jkaindl/neurovim-obsidian",
+      "author": "Johannes Kaindl",
+      "tags": []
+    },
+    {
+      "id": "wikijs-maintainer",
+      "name": "Wiki.js Maintainer",
+      "description": "Publish and sync notes from a folder of your vault to a Wiki.js 2.x instance over GraphQL, with drift detection before every push.",
+      "repo": "https://git.jkaindl.de/jkaindl/wikijs-maintainer",
+      "author": "Jay",
+      "tags": []
+    },
+    {
+      "id": "yijing-oracle",
+      "name": "Yijing Oracle",
+      "description": "Cast the I Ching (Yijing) in your vault: three-coin oracle with Wilhelm hexagram texts, readings saved as notes. Local-first, no cloud.",
+      "repo": "https://git.jkaindl.de/jkaindl/yijing-oracle",
+      "author": "Johannes Kaindl",
+      "tags": []
+    }
+  ]
+}

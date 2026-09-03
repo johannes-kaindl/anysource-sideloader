@@ -69,6 +69,20 @@ still takes a **repo URL** (not a direct asset URL), and derives
 the repo's default branch, and only if it is named `main` or `master` (tried in that order;
 the error message always names the `main` attempt, because that is the expected name).
 
+### The maintainer's own catalog
+
+The plugins maintained by this repo's author are published as one subscribable catalog —
+paste this URL into **Browse catalogs**:
+
+```
+https://git.jkaindl.de/jkaindl/anysource-sideloader/raw/branch/main/catalog.json
+```
+
+It lists 23 plugins, each installing from its own Forgejo release. The file is generated
+from the plugin repos themselves (`obsidian-plugins/tools/catalog/build_catalog.py`), so it
+never drifts from what actually exists; versions are always read live from each plugin's
+forge, never from the catalog.
+
 ### Catalogs
 
 A catalog is a small JSON file that lists multiple plugins at once — useful for
