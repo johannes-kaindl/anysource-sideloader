@@ -116,6 +116,21 @@ visible quirk — the settings page you are looking at goes blank at that moment
 the plugin that owns the page briefly unloads itself. The window stays open; click the
 plugin again in the sidebar and everything is there.
 
+### One channel, on purpose
+
+Distribution runs entirely over **`git.jkaindl.de`** — the catalog, every plugin release,
+and this plugin's own bootstrap download. There is no second channel: these plugins are not
+in the Obsidian Community Store, and the GitHub mirrors are gone.
+
+That is a deliberate trade, and it cuts both ways. It removes the single point of failure
+that started this project — a flagged GitHub account made 21 plugins uninstallable overnight,
+without any of them having a code problem. It also means that if `git.jkaindl.de` does not
+answer, nothing installs or updates until it does. Already-installed plugins keep working;
+they live in your vault, not on a server.
+
+If a check fails, the plugin says which source failed and why rather than reporting that
+everything is up to date.
+
 ### Already have plugins installed?
 
 The **Browse catalogs** section in the plugin's settings reads what is actually in your vault, not just what it installed itself. A

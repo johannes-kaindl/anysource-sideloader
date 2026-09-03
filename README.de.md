@@ -111,6 +111,23 @@ Eine sichtbare Eigenheit — die Einstellungsseite, auf die du gerade schaust, w
 Moment leer, weil sich das Plugin, dem sie gehört, kurz selbst abmeldet. Das Fenster bleibt
 offen; klicke das Plugin links noch einmal an, dann ist alles wieder da.
 
+### Ein Kanal, mit Absicht
+
+Die Verteilung läuft vollständig über **`git.jkaindl.de`** — der Katalog, jedes
+Plugin-Release und der Bootstrap-Download dieses Plugins selbst. Einen zweiten Weg gibt es
+nicht: diese Plugins stehen nicht im Obsidian Community Store, und die GitHub-Spiegel sind
+weg.
+
+Das ist ein bewusster Tausch, und er schneidet in beide Richtungen. Er beseitigt den
+Single Point of Failure, der dieses Projekt ausgelöst hat — ein geflaggtes GitHub-Konto
+machte 21 Plugins über Nacht uninstallierbar, ohne dass eines davon ein Code-Problem hatte.
+Er heißt aber auch: antwortet `git.jkaindl.de` nicht, installiert und aktualisiert sich
+nichts, bis es wieder antwortet. Bereits installierte Plugins laufen weiter — die liegen in
+deinem Vault, nicht auf einem Server.
+
+Scheitert eine Prüfung, nennt das Plugin die Quelle und den Grund, statt zu melden, alles
+sei aktuell.
+
 ### Schon Plugins installiert?
 
 Der Abschnitt **Browse catalogs** in den Einstellungen liest, was tatsächlich in deinem Vault
