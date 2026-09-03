@@ -75,13 +75,13 @@ The plugins maintained by this repo's author are published as one subscribable c
 paste this URL into **Browse catalogs**:
 
 ```
-https://git.jkaindl.de/jkaindl/anysource-sideloader/raw/branch/main/catalog.json
+https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json
 ```
 
-It lists 23 plugins, each installing from its own Forgejo release. The file is generated
-from the plugin repos themselves (`obsidian-plugins/tools/catalog/build_catalog.py`), so it
-never drifts from what actually exists; versions are always read live from each plugin's
-forge, never from the catalog.
+It lives in its own repository rather than in this one: the catalog lists what exists, and
+that is not tied to this client's release cycle. The file is generated from the plugin repos
+themselves, so it never drifts from what actually exists; versions are always read live from
+each plugin's forge, never from the catalog.
 
 ### Catalogs
 
