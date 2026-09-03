@@ -29,7 +29,7 @@
     {
       "id": "audio-interface",
       "name": "Audio Interface",
-      "description": "Read notes aloud with system voices and export them as WAV with a local, downloadable German voice. No cloud, no account.",
+      "description": "Read notes aloud with system voices, export them as WAV with downloadable German or English voices, and turn audio files in your vault into text. No cloud, no account.",
       "repo": "https://git.jkaindl.de/jkaindl/audio-interface",
       "author": "Johannes Kaindl",
       "tags": []
