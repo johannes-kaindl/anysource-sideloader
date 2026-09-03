@@ -94,10 +94,12 @@ export const STRINGS = {
     reportIssue: "Report an issue",
     remove: "Remove",
     noInstalled: "No plugins are sideloaded yet. Install one from \"Browse catalogs\" below, or with the \"Install plugin from URL\" command.",
-    updateAvailable: (v: string) => `Update available: ${v}`,
     upToDateStatus: "Up to date",
     checkFailedStatus: (message: string) => `Check failed: ${message}`,
     update: "Update",
+    /** Der Zeilen-CTA nennt die Zielversion: der Knopf ersetzt seit 2026-09-03 den
+     *  Status-Indikator „Update available: X", steht also allein fuer die Aussage. */
+    updateTo: (v: string) => `Update to ${v}`,
     noUpdates: "Everything up to date.",
     checkAll: "Check for updates",
     manage: "Track for updates",

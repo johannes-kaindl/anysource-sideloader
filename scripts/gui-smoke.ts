@@ -793,17 +793,54 @@ const SECTIONS: Section[] = [
         // ── Update-Pfad ──────────────────────────────────────────────────
         forge.setVersion("1.1.0");
         await klickInZeile(stelle, "Installed plugins", TARGET_PLUGIN_ID, "Check");
+        // Seit 2026-09-03 kippt die Zeile bei einem Rueckstand vom Pruef-Knopf auf einen
+        // Update-CTA, und der Status-Indikator entfaellt dabei: die Aussage steht genau
+        // einmal statt zweimal (vorher sagte das Warnsymbol „Update available: 1.1.0" und
+        // der Knopf daneben bot ausgerechnet nur „Check" an).
+        //
+        // ⚠️ Dieser Punkt hat bis dahin `status === "is-warning"` gemessen. Er ist mit der
+        // Aenderung bewusst umgeschrieben worden — nicht repariert, weil er kaputt war.
+        const CTA = "Update to 1.1.0";
         const nachCheck = await sektionBis(
           stelle,
           "Installed plugins",
-          (z) => z.some((r) => r.name === TARGET_PLUGIN_ID && r.status === "is-warning"),
+          (z) => z.some((r) => r.name === TARGET_PLUGIN_ID && r.knoepfe.includes(CTA)),
         );
-        const warn = nachCheck?.find((r) => r.name === TARGET_PLUGIN_ID);
+        const faellig = nachCheck?.find((r) => r.name === TARGET_PLUGIN_ID);
         check(
-          "C9 „Check“ findet 1.1.0 und setzt den Status auf is-warning",
-          warn?.status === "is-warning" && warn.statusText.includes("1.1.0"),
-          warn ? `Status: ${warn.status} „${warn.statusText}“` : "Zeile blieb ohne Warnung",
+          "C9 „Check“ findet 1.1.0 — die Zeile bietet den Update-CTA statt eines Warn-Indikators",
+          faellig !== undefined &&
+            faellig.knoepfe.includes(CTA) &&
+            faellig.desc.includes("1.0.0") &&
+            faellig.desc.includes("1.1.0") &&
+            // `status` ist die zusammengefuegte Klassenliste des Indikators — fehlt er,
+            // ist sie LEER, nicht null (gepruefte Annahme, kein Ratewert).
+            faellig.status === "" &&
+            !faellig.knoepfe.includes("Check"),
+          faellig
+            ? `„${faellig.desc}“ · Knoepfe: ${faellig.knoepfe.join(",")} · Status: ${faellig.status || "(keiner)"}`
+            : `Zeile ohne CTA · ${nachCheck?.map((r) => r.name).join(",") ?? "-"}`,
         );
+
+        // Der Weg, den es vorher gar nicht gab: aus der Zeile heraus installieren. Gemessen
+        // wird nur, dass der CTA denselben Dialog oeffnet — installiert wird danach ueber
+        // die Updates-Sektion (C11), sonst haette der zweite Weg nichts mehr zu tun.
+        await closeModals(stelle.cdp);
+        const ausZeile = await klickInZeile(stelle, "Installed plugins", TARGET_PLUGIN_ID, CTA);
+        const zeilenModal = await waitForModal(stelle.cdp, "Update");
+        if (zeilenModal) await clickModalButton(stelle.cdp, "Cancel");
+        const nachAbbruch = await cdp.evaluate<string | null>(`
+          const p = ${JSON.stringify(`${targetDir(cfg)}/manifest.json`)};
+          if (!(await app.vault.adapter.exists(p))) return null;
+          return JSON.parse(await app.vault.adapter.read(p)).version;
+        `);
+        check(
+          "C13 der Zeilen-CTA oeffnet denselben Confirm — „Cancel“ schreibt nichts",
+          ausZeile && zeilenModal !== null && zeilenModal.title.includes("1.0.0 → 1.1.0") && nachAbbruch === "1.0.0",
+          `Klick getroffen: ${ausZeile} · Confirm: „${zeilenModal?.title ?? "(keiner)"}“ · ` +
+            `manifest.json nach Cancel: ${nachAbbruch ?? "(fehlt)"}`,
+        );
+        await closeModals(stelle.cdp);
 
         const updates = await sektion(stelle, "Updates");
         const updateZeile = updates?.find((r) => r.name === TARGET_PLUGIN_ID);

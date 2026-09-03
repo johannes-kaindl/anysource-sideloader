@@ -100,6 +100,16 @@ Katalog-Format:
 - Updates werden von Hand angewandt — es gibt kein stilles, unbeaufsichtigtes Auto-Update.
 - Vor dem Anwenden zeigt das Plugin die Release-Notes der neuen Version, damit du weißt, was
   du installierst.
+- **Jede Zeile unter „Installed plugins" trägt ihren eigenen Knopf, und der wechselt mit dem
+  Zustand:** **Check**, solange nichts ansteht, und **Update to `<Version>`**, sobald ein
+  neueres Release bekannt ist. Du installierst also aus der Zeile heraus, die es meldet; die
+  Sektion **Updates** bleibt als Überblick über alles Fällige bestehen.
+
+Das Plugin aktualisiert sich über dieselbe Zeile auch selbst (end-to-end gemessen an Obsidian
+1.13.7): die Dateien werden ersetzt, der neue Code wird geladen, die Einstellungen überleben.
+Eine sichtbare Eigenheit — die Einstellungsseite, auf die du gerade schaust, wird in diesem
+Moment leer, weil sich das Plugin, dem sie gehört, kurz selbst abmeldet. Das Fenster bleibt
+offen; klicke das Plugin links noch einmal an, dann ist alles wieder da.
 
 ### Schon Plugins installiert?
 

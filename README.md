@@ -105,6 +105,16 @@ Catalog format:
 - Updates are applied manually — there is no silent, unattended auto-update.
 - Before applying, the plugin shows the release notes from the new version so you know
   what you're installing.
+- **Each row in Installed plugins carries its own button, and it changes with the state:**
+  **Check** while nothing is pending, and **Update to `<version>`** once a newer release is
+  known. So you can install straight from the row you are looking at; the **Updates**
+  section remains as the overview of everything that is due.
+
+Updating this plugin itself works through the same row (measured end-to-end on Obsidian
+1.13.7): the files are replaced, the new code is loaded, and your settings survive. One
+visible quirk — the settings page you are looking at goes blank at that moment, because
+the plugin that owns the page briefly unloads itself. The window stays open; click the
+plugin again in the sidebar and everything is there.
 
 ### Already have plugins installed?
 

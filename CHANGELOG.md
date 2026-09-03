@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The button in each Installed plugins row now changes with the state.** It reads
+  **Check** while nothing is pending and becomes **Update to `<version>`** once a newer
+  release is known, so an update can be installed from the row that reports it. Until now
+  the row displayed *"Update available: 0.4.1"* and offered only a re-check next to it —
+  installing meant switching to the Updates section, which stays as the overview.
+  The status indicator is dropped while an update is pending: the row states it once,
+  through the button, instead of twice.
+
 ## [0.4.1] — 2026-09-02
 
 ### Fixed

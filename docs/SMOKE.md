@@ -113,22 +113,37 @@ Definition korrekt dastand.
 
 | | Was gemessen wird |
 |---|---|
-| C1 | Katalog geladen: zwei Karten mit Name, Autor, Tags |
-| C2 | Suchfeld filtert die Kartenliste (2 → 1) |
+| C1 | Katalog geladen: beide Einträge stehen als Zeilen im Tab |
+| C2 | Ein nicht installierter Eintrag bietet **Install** |
 | C3 | HTTP-Quelle warnt vor unverschlüsseltem Transport (protokollbasiert, Final-Review-Fix) |
 | C4 | Install-Confirm nennt Quelle, id und Version |
 | C5 | **„Cancel“ bricht wirklich ab** — nichts auf Platte, nichts in den Einstellungen |
-| C6 | Install schreibt `manifest.json` und meldet es per Notice |
-| C7 | Alle drei Code-Dateien liegen im Plugin-Ordner |
-| C8 | Enable-Confirm erscheint, „Later“ aktiviert nichts |
+| C6 | Install schreibt die Dateien und meldet es per Notice |
+| C7 | Enable-Confirm erscheint, „Later“ aktiviert nichts |
 | C8 | Installed-Zeile zeigt Version, Host und Status `is-ok` |
-| C10 | „Check“ findet die neue Version, Status wird `is-warning` |
-| C11 | Updates-Tab zeigt „alt → neu“ |
-| C12 | Update-Confirm nennt beide Versionen und schreibt die neue |
-| C13 | Remove ist destruktiv markiert, Code verschwindet, **`data.json` bleibt** |
+| C9 | „Check“ findet die neue Version — die Zeile bietet den **Update-CTA** statt eines Warn-Indikators |
+| C13 | Der Zeilen-CTA öffnet denselben Confirm, **„Cancel“ schreibt nichts** |
+| C10 | Updates-Sektion führt das Plugin mit „alt → neu“ |
+| C11 | Update-Confirm nennt beide Versionen und schreibt die neue |
+| C12 | Remove ist destruktiv markiert, Code verschwindet, **`data.json` bleibt** |
 
-C13 prüft den Vertrag aus `installer.ts` (`removePlugin`) auf der Platte — genau die Sorte
+C12 prüft den Vertrag aus `installer.ts` (`removePlugin`) auf der Platte — genau die Sorte
 Zusage, die ein Unit-Test bestätigt und ein Dateisystem widerlegen kann.
+
+⚠️ **Diese Tabelle war bis 2026-09-03 abgedriftet** — sie beschrieb noch die Karten-UI von
+vor dem Settings-Umbau (0.3.0), führte **zweimal C8** und verschob dadurch alle Nummern ab
+C9 gegen den Treiber. Aufgefallen ist es erst, als ein neuer Prüfpunkt eingetragen werden
+sollte. Die Tabelle steht jetzt in Laufreihenfolge; C13 läuft bewusst zwischen C9 und C10,
+weil er denselben Zustand braucht wie C9 und vor dem Install von C11 abbrechen muss.
+
+**C9 und C13 sind die Doppelspitze der Zeilen-Umstellung (2026-09-03).** Der Knopf einer
+Installed-Zeile kippt bei einem Rückstand von `Check` auf `Update to <version>`, und der
+Status-Indikator entfällt dabei — die Zeile sagt es einmal statt zweimal. C9 misst die
+Form (CTA da, `Check` weg, kein Indikator, beide Versionen in der Beschreibung), C13 den
+Weg (der CTA öffnet denselben Confirm wie die Updates-Sektion und schreibt bei „Cancel"
+nichts). ⚠️ C9 hat vorher `status === "is-warning"` gemessen und ist mit der Änderung
+**umgeschrieben** worden, nicht repariert — er war nicht kaputt, die Aussage hat sich
+geändert.
 
 ### D — Install per URL und Sicherheitskanten
 
@@ -302,6 +317,7 @@ gelten. Ohne Netz `übersprungen`.
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
+| 2026-09-03 (Zeilen-CTA) | 1.13.7 | **42/42** — C13 neu, C9 umgeschrieben | Zwei Mutationen am Prüfling, jede von genau EINEM Unit-Test gefangen: `setCta()` entfernt → „CTA nennt die Zielversion" rot · Indikator zusätzlich gezeichnet → „sagt es genau einmal" rot. Dabei fiel auf, dass die C-Tabelle dieser Datei seit 0.3.0 abgedriftet war |
 | 2026-09-02 (Eingabe/Neuzeichnen) | 1.13.7 | **41/41** — E9 neu | A/B am selben Treiber: ohne die Cursor-Rettung **genau E9** rot (`Cursor: 34`, erwartet 8), Wert und Fokus dabei grün — die Gegenprobe hat die Aufgabe zugleich korrigiert, die von drei kaputten Größen ausging. E5 nach dem Fix 3/3 rot → als Treiber-Wettrennen belegt (`pendingHost` korrekt, Klick verfehlt) und behoben, danach 3/3 grün |
 | 2026-09-02 (is-checking) | 1.13.7 | **40/40** — E8 neu; E5 war im `--section settings`-Lauf rot und im vollen grün, jetzt eigenständig | Zwei Gegenproben, sauber getrennt: Icon verfälscht → E8 rot über `loader: 0` (animiert blieb 4) · CSS-Animation entfernt → E8 rot über `animiert: 0` (loader blieb 5); sonst kein Punkt mitgefallen |
 | 2026-09-02 (0.3.0) | 1.13.7 | **39/39** — Hub aufgelöst, A/C/G messen jetzt im Einstellungs-Tab | Gegenprobe: ein eigenes `<h3>` eingebaut → **genau A2** rot, sonst keiner |

@@ -508,20 +508,48 @@ export class SideloaderSettingTab extends PluginSettingTab {
         // Die angezeigte Version kommt von der PLATTE, nicht aus den Einstellungen — beide
         // laufen auseinander, sobald jemand am Sideloader vorbei aktualisiert.
         const aufPlatte = this.installiert.get(plugin.id) ?? plugin.installedVersion;
-        row.setName(plugin.id).setDesc(`${aufPlatte} · ${new URL(plugin.ref.baseUrl).host}`);
-        if (plugin.availableVersion) {
-          this.status(row.controlEl, "warning", STRINGS.store.updateAvailable(plugin.availableVersion));
+        const forgeHost = new URL(plugin.ref.baseUrl).host;
+        const faellig = plugin.availableVersion;
+
+        // Zwei Zustaende, und die Aussage steht jeweils GENAU EINMAL.
+        //
+        // Bis 2026-09-03 sagte die Zeile „Update available: 0.4.1" ueber den
+        // Status-Indikator und bot daneben ausgerechnet NICHT an, es zu installieren — der
+        // Knopf prueffte nur. Wer installieren wollte, musste in die Updates-Sektion
+        // wechseln, obwohl die Zeile den Rueckstand schon anzeigte.
+        //
+        // Steht ein Update an, traegt der CTA die Aussage allein (mitsamt Zielversion) und
+        // der Indikator entfaellt — sonst behaupteten Symbol und Knopf dasselbe. Fuer alle
+        // anderen Zustaende bleibt der Indikator der Kanon-Baustein aus UI-STANDARD §8.
+        //
+        // ⚠️ Bewusst in Kauf genommen: solange ein Update aussteht, hat die Zeile kein
+        // eigenes „Check" mehr. Global bleibt „Check now", und nach dem Installieren kippt
+        // der Knopf von selbst zurueck.
+        row.setName(plugin.id).setDesc(
+          faellig ? `${aufPlatte} → ${faellig} · ${forgeHost}` : `${aufPlatte} · ${forgeHost}`,
+        );
+        if (faellig) {
+          // Derselbe Ablauf wie in der Updates-Sektion — eine zweite Ausloesestelle, kein
+          // zweiter Weg: gleicher Bestaetigungsdialog, gleiche Checksummen-Pruefung.
+          row.addButton((btn) =>
+            btn
+              .setButtonText(STRINGS.store.updateTo(faellig))
+              .setCta()
+              .onClick(() => {
+                void applyUpdate(this.host.flowContext(), plugin.id).finally(() => { this.refresh(); });
+              }),
+          );
         } else {
           this.status(row.controlEl, "ok", STRINGS.store.upToDateStatus);
+          row.addButton((btn) =>
+            btn.setButtonText(STRINGS.store.check).onClick(() => {
+              void checkOneUpdate(this.host.flowContext(), plugin.id).then((fehler) => {
+                if (fehler) new Notice(STRINGS.notices.checkFailed(plugin.id, fehler));
+                this.refresh();
+              });
+            }),
+          );
         }
-        row.addButton((btn) =>
-          btn.setButtonText(STRINGS.store.check).onClick(() => {
-            void checkOneUpdate(this.host.flowContext(), plugin.id).then((fehler) => {
-              if (fehler) new Notice(STRINGS.notices.checkFailed(plugin.id, fehler));
-              this.refresh();
-            });
-          }),
-        );
         row.addButton((btn) =>
           btn.setButtonText(STRINGS.store.releaseNotesAction).onClick(() => {
             void this.releaseNotes(plugin, plugin.id);

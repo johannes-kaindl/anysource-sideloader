@@ -285,3 +285,79 @@ describe("Eine laufende Eingabe überlebt ein Neuzeichnen", () => {
   });
 });
 
+
+/**
+ * Die Zeile eines verwalteten Plugins hat zwei Zustände (2026-09-03).
+ *
+ * Vorher sagte die Zeile „Update available: 0.4.1" über den Status-Indikator und bot
+ * daneben ausgerechnet **nicht** an, es zu installieren — der Knopf prüfte nur. Wer
+ * installieren wollte, musste in die separate Updates-Sektion wechseln.
+ *
+ * Jetzt trägt der Knopf selbst die Aktion, sobald ein Rückstand bekannt ist, und der
+ * Indikator entfällt in genau diesem Fall: **die Aussage steht einmal, nicht zweimal.**
+ * Für alle anderen Zustände (aktuell) bleibt der Indikator der Kanon-Baustein aus
+ * UI-STANDARD §8.
+ *
+ * ⚠️ Bewusst in Kauf genommen: solange ein Update aussteht, hat die Zeile kein eigenes
+ * „Check" mehr. Global bleibt „Check now", und nach dem Installieren kippt der Knopf
+ * zurück — der Test darunter sichert genau diesen Rückweg.
+ */
+describe("Zeile eines verwalteten Plugins — Check kippt zu Update", () => {
+  function mitPlugin(availableVersion: string | null): SideloaderSettingTab {
+    return new SideloaderSettingTab(
+      {} as never,
+      host({
+        plugins: [
+          {
+            id: "demo-plugin",
+            repoUrl: "https://git.example.com/o/demo-plugin",
+            ref: { kind: "gitea", baseUrl: "https://git.example.com", owner: "o", repo: "demo-plugin" },
+            installedVersion: "0.4.0",
+            availableVersion,
+            addedFrom: "url",
+          },
+        ],
+      }),
+    );
+  }
+  function zeile(tab: SideloaderSettingTab): Setting {
+    const items = (gruppe(tab, "Installed plugins")?.items ?? []) as { render?: (s: Setting) => void }[];
+    const s = new Setting(undefined as never);
+    // `installedItems()` hat KEINEN fuehrenden Erklaertext (anders als `catalogItems()`) —
+    // die erste Zeile mit `render` IST die Plugin-Zeile.
+    items.find((i) => typeof i.render === "function")?.render?.(s);
+    return s;
+  }
+  const teile = (s: Setting): any[] => (s as unknown as { components: any[] }).components;
+  const knopfTexte = (s: Setting): string[] => teile(s).map((c) => c.textValue).filter(Boolean);
+  const indikator = (s: Setting): any =>
+    (s.controlEl as unknown as { querySelectorAll(q: string): any[] }).querySelectorAll(".asl-status")[0];
+
+  it("mit Rueckstand traegt die Zeile einen CTA, der die Zielversion nennt", () => {
+    const s = zeile(mitPlugin("0.4.1"));
+    const cta = teile(s).find((c) => c.ctaSet);
+    expect(cta?.textValue).toContain("0.4.1");
+  });
+
+  it("mit Rueckstand sagt die Zeile es GENAU EINMAL — kein Indikator, kein Check daneben", () => {
+    // Der Rueckweg in die alte Doppelung: Indikator UND Knopf behaupteten dasselbe.
+    const s = zeile(mitPlugin("0.4.1"));
+    expect(indikator(s)).toBeUndefined();
+    expect(knopfTexte(s)).not.toContain("Check");
+  });
+
+  it("mit Rueckstand nennt die Beschreibung installiert UND verfuegbar", () => {
+    const s = zeile(mitPlugin("0.4.1"));
+    const desc = String((s as unknown as { descValue: string }).descValue);
+    expect(desc).toContain("0.4.0");
+    expect(desc).toContain("0.4.1");
+  });
+
+  it("ohne Rueckstand bleibt es beim Pruefen — Knopf Check und ok-Indikator", () => {
+    // Rueckweg-Schutz: der neue Zustand darf den alten nicht verschlucken.
+    const s = zeile(mitPlugin(null));
+    expect(knopfTexte(s)).toContain("Check");
+    expect(indikator(s)?.hasClass("is-ok")).toBe(true);
+    expect(teile(s).some((c) => c.ctaSet)).toBe(false);
+  });
+});
