@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-06
+
 ### Added
 
 - **Releases now carry `anysource-sideloader.zip` — a one-download bootstrap for the manual
