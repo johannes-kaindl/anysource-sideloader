@@ -16,7 +16,7 @@ import { STRINGS } from "../../src/i18n/strings";
  * Definition in einer Gruppe.
  *
  * ⚠️ **Was dieser Test NICHT kann:** beweisen, dass Obsidian die Definitionen auch
- * zeichnet. Das ist die Naht zum Host und gehört dem GUI-Smoke (`docs/SMOKE.md`, E2–E5) —
+ * zeichnet. Das ist die Naht zum Host und gehört dem GUI-Smoke (`docs/internal/SMOKE.md`, E2–E5) —
  * er ist die inhaltliche Hälfte zu dieser strukturellen. Ein grüner Test hier hat den
  * Defekt nicht bemerkt und hätte ihn auch nicht bemerken können; deshalb steht die
  * Arbeitsteilung hier ausdrücklich und nicht nur im Commit.
@@ -153,7 +153,7 @@ describe("getSettingDefinitions — Struktur", () => {
    *
    *  ⚠️ Bewusst NICHT `setDisabled`: genau dieser Aufruf, aus dem `.finally()` des
    *  Flow-Promise heraus, fror am 2026-09-01 die gesamte App ein (2026-09-02 in sieben
-   *  Laeufen isoliert, `docs/SMOKE.md` § Freeze). Der Indikator ist deshalb nicht nur
+   *  Laeufen isoliert, `docs/internal/SMOKE.md` § Freeze). Der Indikator ist deshalb nicht nur
    *  huebscher als eine gesperrte Schaltflaeche, sondern die einzige gemessen sichere
    *  Form von Rueckmeldung an dieser Stelle. */
   describe("Lade-Zustand der Update-Pruefung (UI-STANDARD §8)", () => {

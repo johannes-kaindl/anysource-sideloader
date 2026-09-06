@@ -6,7 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Releases now carry `anysource-sideloader.zip` — a one-download bootstrap for the manual
+  first install.** The archive holds a correctly named `anysource-sideloader/` folder with
+  `main.js`, `manifest.json` and `styles.css`, and is covered by `checksums.sha256` like every
+  other asset. The link
+  `.../releases/download/latest/anysource-sideloader.zip` is stable across versions, so
+  documentation can name it once.
+  The reason is measured: a forge serves the individual assets as `text/plain` with
+  `content-disposition: inline`, so clicking `main.js` in a browser *opens* it as text instead
+  of downloading it, and browsers then tend to append `.txt`. The resulting install looks like
+  a broken plugin rather than a mis-saved file. The archive gets a real download dialog, turns
+  three downloads into one, and removes the need to create a folder and type its name.
+  (Built by the shared release tooling, so every plugin using it gets the same asset.)
+- **Documentation restructured after [Diátaxis](https://diataxis.fr/)** in `docs/`: a
+  [tutorial](docs/tutorial.md), five [how-to guides](docs/how-to/index.md), three
+  [reference](docs/reference/index.md) pages and three
+  [explanation](docs/explanation/index.md) pages. The README shrank from 213 to ~140 lines and
+  now links rather than retells — notably, the install instructions were on line 47 behind two
+  explanatory sections.
+
 ### Changed
+
+- **The manual install instructions no longer mention a filesystem path.** They now use
+  Obsidian's own *Open plugins folder* button, which makes the procedure identical on macOS,
+  Linux and Windows and removes the need to unhide `.obsidian`. Exiting Restricted mode is now
+  step 1 rather than an afterthought: a plugin sitting in exactly the right folder never loads
+  while that mode is on, and every other indicator looks healthy, so the symptom reads as a
+  broken plugin.
+- The GUI smoke checklist moved from `docs/SMOKE.md` to `docs/internal/SMOKE.md`, keeping
+  `docs/` user-facing. References in code and scripts were updated with it.
 
 - **The button in each Installed plugins row now changes with the state.** It reads
   **Check** while nothing is pending and becomes **Update to `<version>`** once a newer
@@ -66,7 +96,7 @@ All notable changes to this project are documented here. The format follows
   The trigger is the conjunction — `ButtonComponent.setDisabled()` called from the
   *microtask* of the flow promise, inside the settings window. Two variants differing from
   the defect in exactly one detail each (contents of the `finally`; timer instead of
-  microtask) both run fine. Full table in `docs/SMOKE.md` § Freeze.
+  microtask) both run fine. Full table in `docs/internal/SMOKE.md` § Freeze.
 
 - **German README added** (`README.de.md`, CORE-META-09), with a language toggle in both
   files. The English `README.md` stays canonical.
@@ -153,7 +183,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- GUI smoke driver (`npm run smoke:gui`) that runs the checklist in `docs/SMOKE.md`
+- GUI smoke driver (`npm run smoke:gui`) that runs the checklist in `docs/internal/SMOKE.md`
   against a **running** Obsidian over CDP — 36 checks across store view, hub tabs, empty
   states, catalog install/update/remove, install-from-URL, settings, and transport
   (CORE-TEST-02 b). Its network counterpart is local (`scripts/forge-server.ts`, three

@@ -289,7 +289,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
               // JS-Endlosschleife, sondern etwas unterhalb davon; der Zustand blieb
               // bestehen, bis Obsidian neu gestartet wurde.
               //
-              // 2026-09-02 in sieben Laeufen getrennt (Belege in `docs/SMOKE.md` § Freeze).
+              // 2026-09-02 in sieben Laeufen getrennt (Belege in `docs/internal/SMOKE.md` § Freeze).
               // Das Ergebnis widerlegt die urspruengliche Frage „welcher der beiden war es":
               // KEINER der Verdaechtigen friert allein ein.
               //

@@ -1,5 +1,5 @@
 /**
- * GUI-Smoke-Treiber — fährt die Checkliste aus `docs/SMOKE.md` gegen ein **laufendes**
+ * GUI-Smoke-Treiber — fährt die Checkliste aus `docs/internal/SMOKE.md` gegen ein **laufendes**
  * Obsidian statt von Hand (CORE-TEST-02 b).
  *
  * Was er prüft, das die vitest-Suite strukturell nicht kann: den echten `requestUrl`-

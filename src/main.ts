@@ -94,7 +94,7 @@ export default class AnySourceSideloaderPlugin extends Plugin {
     // Bewusst im `finally`, damit ein Fehlschlag den Spinner nicht stehen laesst. Dass
     // hier eine DOM-Aenderung aus einem `finally` heraus passiert, ist gemessen
     // unbedenklich — eingefroren ist am 2026-09-01 ausschliesslich `setDisabled` in
-    // dieser Position (2026-09-02 in sieben Laeufen isoliert, `docs/SMOKE.md` § Freeze).
+    // dieser Position (2026-09-02 in sieben Laeufen isoliert, `docs/internal/SMOKE.md` § Freeze).
     this.settingsTab?.setzePruefungLaeuft(true);
     try {
       await checkUpdatesWithNotices(this.flowContext());
