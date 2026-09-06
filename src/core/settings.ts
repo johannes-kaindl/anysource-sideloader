@@ -22,7 +22,7 @@ export interface SideloaderSettings {
  *  Ein leerer Browse-Tab beim ersten Start waere ein Empty-State ohne Ausweg fuer
  *  genau die Nutzer, fuer die dieses Plugin gebaut ist. */
 export const DEFAULT_CATALOG_URL =
-  "https://git.jkaindl.de/jkaindl/obsidian-plugin-catalog/raw/branch/main/catalog.json";
+  "https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json";
 
 export const DEFAULT_SETTINGS: SideloaderSettings = {
   plugins: [],

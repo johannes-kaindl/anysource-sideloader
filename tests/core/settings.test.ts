@@ -41,3 +41,29 @@ describe("loadSettings", () => {
     expect(loadSettings({ checkOnStartup: false }).checkOnStartup).toBe(false);
   });
 });
+
+/**
+ * Waechter gegen den Fehler, der am 2026-09-03 passiert ist: `bf343b2` stellte die
+ * Katalog-URL in beiden READMEs um und liess `DEFAULT_CATALOG_URL` stehen. Beide Ziele
+ * antworteten mit 200, deshalb schlug kein Link-Check an — nutzersichtbar abonnierte eine
+ * frische Installation einen anderen Katalog, als die Doku zum Abonnieren empfahl.
+ *
+ * Ein Test, der den String hier bloss wiederholt, faengt das NICHT: er wird beim naechsten
+ * Umzug mitgeaendert und bestaetigt danach die neue Haelfte gegen sich selbst. Geprueft wird
+ * deshalb die Naht — Code gegen Doku (CORE-META-16 a).
+ */
+describe("DEFAULT_CATALOG_URL steht in Code und README gleich", () => {
+  const readmes = ["README.md", "README.de.md"] as const;
+  const CATALOG_URL_RE = /https:\/\/git\.jkaindl\.de\/\S+?\/raw\/branch\/\S+?\/catalog\.json/g;
+
+  it.each(readmes)("%s nennt genau die URL, die der Code vorabonniert", async (name) => {
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync(new URL(`../../${name}`, import.meta.url), "utf8");
+    const found = [...new Set(text.match(CATALOG_URL_RE) ?? [])];
+
+    // Die Gegenprobe zur Gegenprobe: findet der Ausdruck ueberhaupt etwas? Ohne diese
+    // Zusicherung wuerde eine umformulierte README den Test still gruen halten (CORE-TEST-16).
+    expect(found.length).toBeGreaterThan(0);
+    expect(found).toEqual([DEFAULT_SETTINGS.catalogs[0]]);
+  });
+});

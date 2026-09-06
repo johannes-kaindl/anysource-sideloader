@@ -27,6 +27,19 @@ All notable changes to this project are documented here. The format follows
   now links rather than retells — notably, the install instructions were on line 47 behind two
   explanatory sections.
 
+### Fixed
+
+- **A fresh install now subscribes to the same catalog the README tells you to subscribe to.**
+  `DEFAULT_CATALOG_URL` still pointed at a predecessor repository: the README was moved to the
+  current catalog in 0.4.1 and the code was left behind. Both URLs answered with HTTP 200, so
+  no link check could see it — the visible effect was that following the README added a second,
+  near-identical catalog to the browse list. The predecessor also carried no tags on any of its
+  23 entries, and the browse filter searches name, description **or** tag, so searching by tag
+  found nothing there.
+  A test now checks the seam rather than the value: it reads both READMEs and asserts they name
+  exactly the URL the code subscribes to. A test that merely repeated the string would have been
+  edited along with the next move and confirmed nothing.
+
 ### Changed
 
 - **The manual install instructions no longer mention a filesystem path.** They now use
