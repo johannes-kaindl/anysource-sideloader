@@ -31,8 +31,10 @@ Two places, one mechanism:
   is known. Install straight from the row you are looking at.
 - **In the Updates section**, which lists everything that is due, as an overview.
 
-Either way you get the release notes of the new version before anything happens, and nothing is
-written until you confirm.
+Either way you get the release notes before anything happens, and nothing is written until you
+confirm. If you skipped a few releases, you see all of them — every version between the one you
+have and the one you are about to install, newest first, each under its own version heading — not
+just the latest.
 
 ## Updating the Sideloader itself
 

@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { authHeaders, issuesUrl, latestReleaseUrl, parseGiteaRelease } from "../../src/core/forge/gitea";
+import {
+  authHeaders,
+  issuesUrl,
+  latestReleaseUrl,
+  parseGiteaRelease,
+  parseGiteaReleaseList,
+  releasesListUrl,
+} from "../../src/core/forge/gitea";
 import type { RepoRef } from "../../src/core/forge/types";
 
 const REF: RepoRef = { kind: "gitea", baseUrl: "https://git.jkaindl.de", owner: "jkaindl", repo: "calendar-notes" };
@@ -22,6 +29,30 @@ describe("parseGiteaRelease", () => {
   });
   it("wirft bei einer Nicht-Release-Antwort (z.B. Fehlerobjekt)", () => {
     expect(() => parseGiteaRelease('{"message":"Not Found"}')).toThrow();
+  });
+});
+
+it("releasesListUrl geht an /releases (nicht /latest)", () => {
+  expect(releasesListUrl(REF)).toBe("https://git.jkaindl.de/api/v1/repos/jkaindl/calendar-notes/releases?limit=50");
+});
+
+describe("parseGiteaReleaseList", () => {
+  it("parst ein Array aus Release-Objekten in ReleaseInfo[]", () => {
+    const einzelnes = JSON.parse(FIXTURE) as Record<string, unknown>;
+    const zweites = { ...einzelnes, tag_name: "v0.1.0", body: "aeltere Notes" };
+    const liste = parseGiteaReleaseList(JSON.stringify([einzelnes, zweites]));
+    expect(liste).toHaveLength(2);
+    expect(liste[1]?.version).toBe("0.1.0");
+    expect(liste[1]?.notes).toBe("aeltere Notes");
+  });
+
+  it("wirft bei einer Nicht-Liste (z.B. Fehlerobjekt)", () => {
+    expect(() => parseGiteaReleaseList('{"message":"Not Found"}')).toThrow();
+  });
+
+  it("ueberspringt Eintraege ohne tag_name statt die ganze Liste zu verwerfen", () => {
+    const liste = parseGiteaReleaseList(JSON.stringify([{ body: "kein tag" }, JSON.parse(FIXTURE)]));
+    expect(liste).toHaveLength(1);
   });
 });
 

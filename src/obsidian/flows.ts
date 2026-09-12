@@ -3,7 +3,7 @@
 // duerfen UI anfassen, alles andere ist reine Ablauflogik ueber core/*.
 import { Notice, type App } from "obsidian";
 import { confirmAction } from "../vendor/kit-obsidian/confirm";
-import { detectForge, fetchLatestRelease, fetchPluginFiles, type FetchedPlugin } from "../core/source";
+import { detectForge, fetchLatestRelease, fetchPluginFiles, fetchReleasesSince, type FetchedPlugin } from "../core/source";
 import { pluginDir } from "../core/install";
 import type { HttpPort, ReleaseInfo, RepoRef } from "../core/forge/types";
 import type { ManagedPlugin, SideloaderSettings } from "../core/settings";
@@ -218,16 +218,20 @@ export async function checkOneUpdate(ctx: FlowContext, id: string): Promise<stri
   }
 }
 
-/** Release-Notes fuer eine Zeile (Installed- oder Updates-Panel): ein frischer
- *  fetchLatestRelease liefert die aktuellsten Notes, unabhaengig davon, ob zuletzt
- *  geprueft wurde. Wirft weiter, wenn die Quelle nicht erreichbar ist — der Aufrufer
- *  (View) faengt das ab und zeigt eine Notice statt eines leeren Modals. */
-export async function fetchReleaseNotesFor(ctx: FlowContext, id: string): Promise<{ version: string; notes: string } | null> {
+/** Release-Notes fuer eine Zeile (Installed- oder Updates-Panel): alle Releases seit der
+ *  INSTALLIERTEN Version, neueste zuerst — nicht nur das zuletzt gefetchte (Quicktask
+ *  2026-09-12: ein Update von 0.3.1 auf 0.5.0 zeigte bisher nur 0.5.0, das Delta 0.4.0 und
+ *  0.4.1 fiel unter den Tisch). Wirft weiter, wenn die Quelle nicht erreichbar ist — der
+ *  Aufrufer (View) faengt das ab und zeigt eine Notice statt eines leeren Modals. */
+export async function fetchReleaseNotesFor(
+  ctx: FlowContext,
+  id: string,
+): Promise<Array<{ version: string; notes: string }>> {
   const plugin = ctx.settings.plugins.find((p) => p.id === id);
-  if (!plugin) return null;
+  if (!plugin) return [];
   const token = resolveToken(ctx, plugin.ref);
-  const release = await fetchLatestRelease(ctx.http, plugin.ref, token);
-  return { version: release.version, notes: release.notes };
+  const releases = await fetchReleasesSince(ctx.http, plugin.ref, plugin.installedVersion, token);
+  return releases.map((r) => ({ version: r.version, notes: r.notes }));
 }
 
 /** applyUpdate: wie installFromUrl ab fetchPluginFiles, mit zwei Sicherheits-Zusatzkanten:

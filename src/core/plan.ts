@@ -1,6 +1,6 @@
 import type { ManagedPlugin } from "./settings";
 import type { ReleaseInfo } from "./forge/types";
-import { isNewer } from "./version";
+import { compareVersions, isNewer } from "./version";
 
 export interface UpdateCheckResult {
   id: string;
@@ -23,6 +23,15 @@ export function planUpdates(plugins: ManagedPlugin[], latest: Map<string, Releas
     });
   }
   return result;
+}
+
+/** Alle Releases, die NEUER sind als `installed` — neueste zuerst. Grundlage fuer die
+ *  Update-Notes-Anzeige: bisher zeigte sie nur das zuletzt gefetchte Release, jetzt das
+ *  ganze Versions-Delta seit der installierten Version (Quicktask 2026-09-12). */
+export function releasesSince(installed: string, releases: ReleaseInfo[]): ReleaseInfo[] {
+  return releases
+    .filter((r) => isNewer(r.version, installed))
+    .sort((a, b) => compareVersions(b.version, a.version));
 }
 
 /**

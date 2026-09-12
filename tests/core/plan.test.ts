@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fasseFehlerZusammen, planUpdates } from "../../src/core/plan";
+import { fasseFehlerZusammen, planUpdates, releasesSince } from "../../src/core/plan";
+import type { ReleaseInfo } from "../../src/core/forge/types";
 
 describe("planUpdates", () => {
   it("filtert auf echte Updates", () => {
@@ -29,6 +30,25 @@ describe("planUpdates", () => {
       ref: { kind: "gitea" as const, baseUrl: "b", owner: "o", repo: "x" },
     };
     expect(planUpdates([plugin], new Map())).toEqual([]);
+  });
+});
+
+describe("releasesSince", () => {
+  const mk = (version: string, notes: string): ReleaseInfo => ({
+    tagName: version, version, notes, htmlUrl: "", assets: [],
+  });
+
+  it("filtert auf Releases NEUER als installed und sortiert neueste zuerst", () => {
+    const releases = [mk("0.4.0", "a"), mk("0.5.0", "c"), mk("0.4.1", "b"), mk("0.3.1", "alt")];
+    expect(releasesSince("0.3.1", releases)).toEqual([mk("0.5.0", "c"), mk("0.4.1", "b"), mk("0.4.0", "a")]);
+  });
+
+  it("installed selbst und aeltere Versionen bleiben aussen vor", () => {
+    expect(releasesSince("1.0.0", [mk("1.0.0", "x"), mk("0.9.0", "y")])).toEqual([]);
+  });
+
+  it("leere Liste bleibt leer", () => {
+    expect(releasesSince("1.0.0", [])).toEqual([]);
   });
 });
 

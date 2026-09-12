@@ -213,10 +213,10 @@ export class SideloaderSettingTab extends PluginSettingTab {
 
   private async releaseNotes(plugin: ManagedPlugin, name: string): Promise<void> {
     try {
-      const info = await fetchReleaseNotesFor(this.host.flowContext(), plugin.id);
-      new ReleaseNotesModal(this.app, `${name} ${info?.version ?? plugin.installedVersion}`, info?.notes ?? "").open();
+      const releases = await fetchReleaseNotesFor(this.host.flowContext(), plugin.id);
+      new ReleaseNotesModal(this.app, name, releases).open();
     } catch {
-      new ReleaseNotesModal(this.app, name, "").open();
+      new ReleaseNotesModal(this.app, name, []).open();
     }
   }
 

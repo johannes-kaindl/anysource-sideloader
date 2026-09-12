@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Release notes before an update now cover the whole version delta, not just the latest
+  release.** Updating from 0.3.1 to 0.5.0 used to show only 0.5.0's notes; it now shows 0.5.0,
+  0.4.1 and 0.4.0, newest first, each under its own version heading — the same modal, just fed
+  every release newer than the installed version instead of only the last one fetched.
+
 ## [0.4.2] — 2026-09-06
 
 ### Added

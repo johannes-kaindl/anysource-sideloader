@@ -3,6 +3,7 @@ import type { AssetRef, HttpPort, HttpRequest, ReleaseInfo, RepoRef } from "./fo
 import * as gh from "./forge/github";
 import * as gitea from "./forge/gitea";
 import { rawFileUrl } from "./forge/raw";
+import { releasesSince } from "./plan";
 import {
   parseChecksums,
   parsePluginManifest,
@@ -87,6 +88,36 @@ export async function fetchLatestRelease(
       downloadUrl: rawFileUrl(src, f),
     })),
   };
+}
+
+/** Alle Releases seit `installedVersion`, neueste zuerst — fuer die Update-Notes-Anzeige
+ *  (Quicktask 2026-09-12: vorher zeigte ein Update nur die Notes des zuletzt gefetchten
+ *  Release, nicht das ganze Versions-Delta). `raw` hat keinen Release-Endpunkt; dort bleibt
+ *  es beim synthetischen Einzel-Release aus `fetchLatestRelease` (Notes ohnehin leer). */
+export async function fetchReleasesSince(
+  http: HttpPort,
+  ref: RepoRef,
+  installedVersion: string,
+  token: string | null,
+): Promise<ReleaseInfo[]> {
+  if (ref.kind === "github") {
+    const url = gh.releasesListUrl(ref);
+    const res = await http({ url, headers: gh.apiHeaders(token) });
+    if (res.status !== 200) {
+      throw new Error(`Download fehlgeschlagen fuer GitHub-Release-Liste (${url}): HTTP ${res.status}`);
+    }
+    return releasesSince(installedVersion, gh.parseGithubReleaseList(res.text));
+  }
+  if (ref.kind === "gitea") {
+    const url = gitea.releasesListUrl(ref);
+    const res = await http({ url, headers: gitea.authHeaders(token) });
+    if (res.status !== 200) {
+      throw new Error(`Download fehlgeschlagen fuer Gitea-Release-Liste (${url}): HTTP ${res.status}`);
+    }
+    return releasesSince(installedVersion, gitea.parseGiteaReleaseList(res.text));
+  }
+  const latest = await fetchLatestRelease(http, ref, token);
+  return releasesSince(installedVersion, [latest]);
 }
 
 export interface FetchedPlugin {

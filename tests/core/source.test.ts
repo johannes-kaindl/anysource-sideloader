@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectForge, fetchLatestRelease, fetchPluginFiles } from "../../src/core/source";
+import { detectForge, fetchLatestRelease, fetchPluginFiles, fetchReleasesSince } from "../../src/core/source";
 import type { HttpPort } from "../../src/core/forge/types";
 import { readFileSync } from "node:fs";
 
@@ -167,5 +167,66 @@ describe("raw-Quelle: Default-Branch", () => {
   it("meldet den Fehler des ERSTEN Versuchs, wenn beide fehlschlagen", async () => {
     const { port } = nurDiese({});
     await expect(fetchLatestRelease(port, ref, null)).rejects.toThrow(/manifest\.json/);
+  });
+});
+
+describe("fetchReleasesSince — Update-Notes ueber das ganze Versions-Delta", () => {
+  it("github: holt die Liste, filtert auf neuer-als-installed, neueste zuerst", async () => {
+    const einzelnes = JSON.parse(readFileSync(new URL("../fixtures/github-release.json", import.meta.url), "utf8")) as Record<string, unknown>;
+    const liste = [
+      { ...einzelnes, tag_name: "v0.5.0", body: "0.5.0" },
+      { ...einzelnes, tag_name: "v0.4.1", body: "0.4.1" },
+      { ...einzelnes, tag_name: "v0.4.0", body: "0.4.0" },
+      { ...einzelnes, tag_name: "v0.3.1", body: "0.3.1" },
+    ];
+    const http = fakeHttp({
+      "https://api.github.com/repos/o/r/releases?per_page=100": { text: JSON.stringify(liste) },
+    });
+    const releases = await fetchReleasesSince(
+      http, { kind: "github", baseUrl: "https://github.com", owner: "o", repo: "r" }, "0.3.1", null,
+    );
+    expect(releases.map((r) => r.version)).toEqual(["0.5.0", "0.4.1", "0.4.0"]);
+  });
+
+  it("gitea: dieselbe Filterung ueber den Gitea-Adapter", async () => {
+    const einzelnes = JSON.parse(GITEA_FIXTURE) as Record<string, unknown>;
+    const liste = [{ ...einzelnes, tag_name: "0.2.0" }, { ...einzelnes, tag_name: "0.1.0" }];
+    const http = fakeHttp({
+      "https://git.jkaindl.de/api/v1/repos/jkaindl/calendar-notes/releases?limit=50": { text: JSON.stringify(liste) },
+    });
+    const releases = await fetchReleasesSince(
+      http,
+      { kind: "gitea", baseUrl: "https://git.jkaindl.de", owner: "jkaindl", repo: "calendar-notes" },
+      "0.1.0",
+      null,
+    );
+    expect(releases.map((r) => r.version)).toEqual(["0.2.0"]);
+  });
+
+  it("raw: kein Release-Endpunkt — faellt auf das synthetische Einzel-Release aus fetchLatestRelease zurueck", async () => {
+    const http = fakeHttp({
+      "https://forge.example.com/o/r/raw/main/manifest.json": { text: '{"version":"2.0.0"}' },
+    });
+    const releases = await fetchReleasesSince(
+      http, { kind: "raw", baseUrl: "https://forge.example.com", owner: "o", repo: "r" }, "1.0.0", null,
+    );
+    expect(releases.map((r) => r.version)).toEqual(["2.0.0"]);
+  });
+
+  it("raw: liefert leere Liste, wenn die synthetische Version nicht neuer ist", async () => {
+    const http = fakeHttp({
+      "https://forge.example.com/o/r/raw/main/manifest.json": { text: '{"version":"1.0.0"}' },
+    });
+    const releases = await fetchReleasesSince(
+      http, { kind: "raw", baseUrl: "https://forge.example.com", owner: "o", repo: "r" }, "1.0.0", null,
+    );
+    expect(releases).toEqual([]);
+  });
+
+  it("github: non-200 auf die Liste wirft einen sprechenden Fehler", async () => {
+    const http = fakeHttp({ "https://api.github.com/repos/o/r/releases?per_page=100": { status: 403, text: "" } });
+    await expect(
+      fetchReleasesSince(http, { kind: "github", baseUrl: "https://github.com", owner: "o", repo: "r" }, "0.1.0", null),
+    ).rejects.toThrow(/403/);
   });
 });
