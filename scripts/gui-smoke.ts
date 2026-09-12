@@ -1883,7 +1883,11 @@ const SECTIONS: Section[] = [
       // /raw/branch/<ref>/ muss über requestUrl bei 200 und echtem Inhalt landen.
       const raw = await cdp.evaluate<{ status: number; ist_json: boolean; detail: string }>(`
         try {
-          const url = "https://git.jkaindl.de/jkaindl/obsidian-plugin-catalog/raw/branch/main/catalog.json";
+          // Kanonisch seit 9a3c629 (2026-09-06) — "obsidian-plugin-catalog" ist seit
+          // 2026-09-07 auf der Forge archiviert (read-only). Muss mit DEFAULT_CATALOG_URL
+          // in src/core/settings.ts uebereinstimmen, sonst prueft dieser Checkpoint den
+          // falschen (aufgegebenen) Katalog, waehrend er dabei durchweg gruen bleibt.
+          const url = "https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json";
           const r = await requestUrl({ url, throw: false });
           let ist_json = false;
           try { ist_json = typeof JSON.parse(r.text).catalogVersion !== "undefined"; } catch (e) { ist_json = false; }
