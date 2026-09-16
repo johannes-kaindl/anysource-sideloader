@@ -10,7 +10,7 @@ import type { ManagedPlugin, SideloaderSettings } from "../core/settings";
 import { fasseFehlerZusammen, planUpdates, type UpdateCheckResult } from "../core/plan";
 import { isNewer } from "../core/version";
 import { STRINGS } from "../i18n/strings";
-import type { SecretStore } from "./secrets";
+import type { SecretStore } from "../vendor/kit/secrets";
 import { resolveHostToken } from "./tokens";
 import { adapterFilePort, enablePlugin, reloadIfEnabled, removePlugin, writePluginFiles } from "./installer";
 

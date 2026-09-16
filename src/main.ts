@@ -1,6 +1,7 @@
 import { Notice, Plugin } from "obsidian";
 import { DEFAULT_SETTINGS, loadSettings, type SideloaderSettings } from "./core/settings";
-import { obsidianSecretStore, MemorySecretStore, type SecretStore } from "./obsidian/secrets";
+import { obsidianSecretStore, secretStorageAvailable } from "./vendor/kit-obsidian/secrets";
+import { MemorySecretStore, type SecretStore } from "./vendor/kit/secrets";
 import { SideloaderSettingTab } from "./obsidian/settings-tab";
 import { obsidianHttp } from "./obsidian/http";
 import { checkAllUpdates, checkUpdatesWithNotices, installFromUrl, type FlowContext } from "./obsidian/flows";
@@ -18,8 +19,7 @@ export default class AnySourceSideloaderPlugin extends Plugin {
   async onload(): Promise<void> {
     this.settings = loadSettings(await this.loadData());
     // secretStorage gibt es ab 1.11.4 (minAppVersion) — Form pruefen statt Existenz annehmen:
-    const hasKeychain = typeof (this.app as { secretStorage?: { getSecret?: unknown } }).secretStorage?.getSecret === "function";
-    this.secretStore = hasKeychain ? obsidianSecretStore(this.app) : new MemorySecretStore();
+    this.secretStore = secretStorageAvailable(this.app) ? obsidianSecretStore(this.app) : new MemorySecretStore();
     this.http = obsidianHttp();
     this.settingsTab = new SideloaderSettingTab(this.app, this);
     this.addSettingTab(this.settingsTab);

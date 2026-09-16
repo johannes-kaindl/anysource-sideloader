@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Setting } from "obsidian";
 import { SideloaderSettingTab, normalizeHost, type SettingsHost } from "../../src/obsidian/settings-tab";
 import { DEFAULT_SETTINGS, type SideloaderSettings } from "../../src/core/settings";
-import { MemorySecretStore } from "../../src/obsidian/secrets";
+import { MemorySecretStore } from "../../src/vendor/kit/secrets";
 import { STRINGS } from "../../src/i18n/strings";
 
 /**

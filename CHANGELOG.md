@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Schluesselbund-Zugriff kommt jetzt aus `obsidian-kit@0.37.1`** statt aus einer eigenen
+  Kopie (`src/obsidian/secrets.ts` entfernt, `src/vendor/kit/secrets.ts` +
+  `src/vendor/kit-obsidian/secrets.ts` vendoriert). Sichtbare Folge: `SecretStore` bekommt
+  `delete(id)` (ein geloeschter Endpunkt nimmt sein Token mit) und `obsidianSecretStore(...).get()`
+  liefert bei einem leeren Secret jetzt `null` statt eines leeren Strings; der
+  Verfuegbarkeits-Check beim Start prueft ueber `secretStorageAvailable(app)` sowohl
+  `getSecret` als auch `setSecret` statt nur `getSecret`.
 - **Release notes before an update now cover the whole version delta, not just the latest
   release.** Updating from 0.3.1 to 0.5.0 used to show only 0.5.0's notes; it now shows 0.5.0,
   0.4.1 and 0.4.0, newest first, each under its own version heading — the same modal, just fed

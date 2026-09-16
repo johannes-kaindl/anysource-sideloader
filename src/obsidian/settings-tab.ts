@@ -20,7 +20,7 @@ import * as gh from "../core/forge/github";
 import type { RepoRef } from "../core/forge/types";
 import { adapterFilePort, readInstalledManifest } from "./installer";
 import { resolveHostToken } from "./tokens";
-import type { SecretStore } from "./secrets";
+import type { SecretStore } from "../vendor/kit/secrets";
 import {
   adoptFromCatalog,
   applyUpdate,

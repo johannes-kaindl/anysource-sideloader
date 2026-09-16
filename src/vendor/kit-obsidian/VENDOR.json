@@ -2,6 +2,6 @@
   "source": "obsidian-kit",
   "version": "0.30.0",
   "sha": "6e571a4e315a7f359fd611466472534ce8ca42b3",
-  "modules": "confirm.ts, hub.ts, settings_walker.ts, folder-suggest.ts",
-  "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh."
+  "modules": "confirm.ts, hub.ts, settings_walker.ts, folder-suggest.ts + secrets.ts@0.37.1",
+  "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh. secrets.ts liegt in diesem Verzeichnis auf einer EIGENEN, neueren Ref: obsidian-kit@0.37.1 (4cfa7464bca9dfe0529008d674cb4316f0ce5406) — s. eigener Datei-Header, nicht diese Basis-Version."
 }

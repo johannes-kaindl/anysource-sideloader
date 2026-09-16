@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fetchReleaseNotesFor, type FlowContext } from "../../src/obsidian/flows";
-import { MemorySecretStore } from "../../src/obsidian/secrets";
+import { MemorySecretStore } from "../../src/vendor/kit/secrets";
 import type { HttpPort } from "../../src/core/forge/types";
 import type { ManagedPlugin, SideloaderSettings } from "../../src/core/settings";
 

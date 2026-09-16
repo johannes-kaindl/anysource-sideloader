@@ -18,6 +18,10 @@ KIT=${KIT_DIR:-../obsidian-kit}
 CODEKIT=${CODEKIT_DIR:-"$HOME/Projects/jkaindl/libs/code-kit"}
 KIT_REF=${KIT_REF:-0.30.0}
 CODEKIT_REF=${CODEKIT_REF:-0.5.0}
+# secrets.ts liegt auf einer EIGENEN, neueren Ref als der Rest von kit-obsidian (Muster aus
+# calendar-notes/tools/sync-kit.sh): der Rest ist seit 0.30.0 unveraendert vendoriert, das
+# secrets-Modul zieht erst hier ein und nimmt direkt den aktuellen Pin.
+SECRETS_REF=${SECRETS_REF:-0.37.1}
 
 # Der TAG-Commit, nicht der HEAD des Nachbar-Repos: HEAD steht oft auf einem spaeteren Stand,
 # und ein daraus gelesener SHA widerspraeche der gestempelten Version. (Gemessen 2026-09-02:
@@ -34,6 +38,7 @@ loese_ref() { # $1 repo-dir $2 ref $3 name
 }
 K_SHA=$(loese_ref "$KIT" "$KIT_REF" obsidian-kit)
 CK_SHA=$(loese_ref "$CODEKIT" "$CODEKIT_REF" code-kit)
+SECRETS_SHA=$(loese_ref "$KIT" "$SECRETS_REF" obsidian-kit)
 
 # VORPRUEFUNG, bevor irgendetwas geschrieben wird.
 #
@@ -73,9 +78,11 @@ vendor() {
   mv "$tmp" "$1"
 }
 
-write_vendor_json() { # $1 zielverzeichnis $2 source $3 version $4 sha $5 modulliste
-  printf '{\n  "source": "%s",\n  "version": "%s",\n  "sha": "%s",\n  "modules": "%s",\n  "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh."\n}\n' \
-    "$2" "$3" "$4" "$5" > "$1/VENDOR.json"
+write_vendor_json() { # $1 zielverzeichnis $2 source $3 version $4 sha $5 modulliste [$6 zusatz-note]
+  note="Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh."
+  if [ -n "${6:-}" ]; then note="$note $6"; fi
+  printf '{\n  "source": "%s",\n  "version": "%s",\n  "sha": "%s",\n  "modules": "%s",\n  "note": "%s"\n}\n' \
+    "$2" "$3" "$4" "$5" "$note" > "$1/VENDOR.json"
 }
 
 # `num` wird von settings_schema importiert (clampInt), `folder-suggest` von settings_walker —
@@ -89,6 +96,7 @@ CK_QUELLEN=""; for f in $PURE; do CK_QUELLEN="$CK_QUELLEN src/ts/pure/$f.ts"; do
 K_QUELLEN="src/testing/obsidian-mock.ts"; for f in $OBS; do K_QUELLEN="$K_QUELLEN src/obsidian/$f.ts"; done
 pruefe_quellen "$CODEKIT" "$CODEKIT_REF" code-kit $CK_QUELLEN
 pruefe_quellen "$KIT" "$KIT_REF" obsidian-kit $K_QUELLEN
+pruefe_quellen "$KIT" "$SECRETS_REF" obsidian-kit src/pure/secrets.ts src/obsidian/secrets.ts
 
 for f in $PURE; do
   vendor "src/vendor/code-kit/$f.ts" "$CODEKIT" "$CODEKIT_REF" code-kit "$CODEKIT_REF" "src/ts/pure/$f.ts"
@@ -101,6 +109,18 @@ write_vendor_json tests/vendor/kit obsidian-kit "$KIT_REF" "$K_SHA" "obsidian-mo
 for f in $OBS; do
   vendor "src/vendor/kit-obsidian/$f.ts" "$KIT" "$KIT_REF" obsidian-kit "$KIT_REF" "src/obsidian/$f.ts"
 done
-write_vendor_json src/vendor/kit-obsidian obsidian-kit "$KIT_REF" "$K_SHA" "$(printf '%s.ts, ' $OBS | sed 's/, $//')"
 
-echo "vendored: code-kit@$CODEKIT_REF ($PURE) | obsidian-kit@$KIT_REF ($OBS obsidian-mock)"
+mkdir -p src/vendor/kit
+vendor src/vendor/kit/secrets.ts "$KIT" "$SECRETS_REF" obsidian-kit "$SECRETS_REF" src/pure/secrets.ts
+vendor src/vendor/kit-obsidian/secrets.ts "$KIT" "$SECRETS_REF" obsidian-kit "$SECRETS_REF" src/obsidian/secrets.ts
+# Import-Umschreibung: obsidian-kit haelt die reinen Module unter src/pure/, dieser Konsument
+# vendort sie sibling zu src/vendor/kit-obsidian/ unter src/vendor/kit/ — ein Import
+# "../pure/secrets" aus der Kit-Quelle muss deshalb auf "../kit/secrets" zeigen (gleiche
+# relative Tiefe, nur anderer Ordnername).
+sed -i.bak 's#from "\.\./pure/#from "../kit/#g' src/vendor/kit-obsidian/secrets.ts
+rm -f src/vendor/kit-obsidian/secrets.ts.bak
+SECRETS_NOTE="secrets.ts liegt in diesem Verzeichnis auf einer EIGENEN, neueren Ref: obsidian-kit@$SECRETS_REF ($SECRETS_SHA) — s. eigener Datei-Header, nicht diese Basis-Version."
+write_vendor_json src/vendor/kit obsidian-kit "$SECRETS_REF" "$SECRETS_SHA" "secrets.ts"
+write_vendor_json src/vendor/kit-obsidian obsidian-kit "$KIT_REF" "$K_SHA" "$(printf '%s.ts, ' $OBS | sed 's/, $//') + secrets.ts@$SECRETS_REF" "$SECRETS_NOTE"
+
+echo "vendored: code-kit@$CODEKIT_REF ($PURE) | obsidian-kit@$KIT_REF ($OBS obsidian-mock) | obsidian-kit@$SECRETS_REF (secrets)"
