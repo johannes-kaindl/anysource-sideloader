@@ -1981,6 +1981,63 @@ async function main(): Promise<void> {
    *  die Warnung gehoert neben die Bilanz, wo sie noch gelesen wird. */
   const herkunftsWarnungen: string[] = [];
 
+  // Dieselbe Aufraeumarbeit wie im `finally` unten — als eigene Funktion, damit der
+  // SIGINT/SIGTERM-Handler sie aufrufen kann, ohne Code zu duplizieren. Ein Ctrl-C mitten
+  // im Lauf ueberspringt das `finally` NICHT (try/catch-Semantik), sondern beendet den
+  // Node-Prozess sofort — ohne eigenen Handler bleibt der Smoke-Zielordner
+  // `.obsidian/plugins/asl-smoke-target` im Vault stehen und die umgestellten Settings
+  // ebenso (gemessen: der naechste Lauf liest den Rest als "im Vault bereits installiertes
+  // Plugin" und ueberspringt seinen ganzen Installations-Zweig, still).
+  const cleanupState = async (): Promise<void> => {
+    await closeModals(cdp).catch(() => undefined);
+    if (!keep) {
+      await removeTargetPlugin(cdp, configDir).catch(() => undefined);
+      await cdp
+        .evaluate(`
+          for (const leaf of app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})) leaf.detach();
+          return true;
+        `)
+        .catch(() => undefined);
+    }
+    if (previousSettings !== null) {
+      const endstand = await cdp
+        .evaluate<string>(`
+          const plugin = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+          if (!plugin) return "(Plugin weg)";
+          for (const key of Object.keys(plugin.settings)) delete plugin.settings[key];
+          Object.assign(plugin.settings, JSON.parse(${JSON.stringify(previousSettings)}));
+          if (plugin.__smokeSecretStore) { plugin.secretStore = plugin.__smokeSecretStore; delete plugin.__smokeSecretStore; }
+          await plugin.saveSettings();
+          await new Promise((r) => setTimeout(r, 600));
+          const pfad = app.vault.configDir + "/plugins/" + ${JSON.stringify(PLUGIN_ID)} + "/data.json";
+          return JSON.stringify(JSON.parse(await app.vault.adapter.read(pfad)));
+        `)
+        .catch(() => "(Fehler)");
+      const soll = JSON.stringify(JSON.parse(previousSettings) as unknown);
+      console.log(
+        endstand === soll
+          ? "Einstellungen zurückgeschrieben: data.json byte-gleich"
+          : `Einstellungen ABWEICHUNG in data.json:\n  vorher:  ${soll}\n  nachher: ${endstand}`,
+      );
+    }
+    await releaseAlwaysOnTop(cdp).catch(() => undefined);
+  };
+
+  let signalCleanupRunning = false;
+  const onAbortSignal = (signal: NodeJS.Signals) => {
+    if (signalCleanupRunning) return;
+    signalCleanupRunning = true;
+    void (async () => {
+      console.log(`\n\nAbbruch durch ${signal} — raeume Smoke-Zustand auf...`);
+      await cleanupState();
+      cdp.close();
+      await forge.stop().catch(() => undefined);
+      process.exit(130);
+    })();
+  };
+  process.on("SIGINT", onAbortSignal);
+  process.on("SIGTERM", onAbortSignal);
+
   try {
     await cdp.mitschnitt((zeile) => { console.log(`  [renderer] ${zeile}`); });
 
@@ -2063,6 +2120,23 @@ async function main(): Promise<void> {
     `);
     console.log(`Plugin-Version: ${deployt} deployt, ${plugin.version ?? "?"} beim App-Start registriert\n`);
 
+    // Der Smoke-Zielordner traegt IMMER die feste id `asl-smoke-target` (scripts/forge-server.ts)
+    // — ein Rest aus einem per SIGINT/SIGTERM abgebrochenen frueheren Lauf ist daran erkennbar,
+    // BEVOR dieser Lauf selbst etwas installiert. Ohne diesen Punkt liest ein spaeterer
+    // Abschnitt den Rest als "im Vault bereits installiertes Plugin" und ueberspringt seinen
+    // Installations-Zweig still.
+    const leftoverTarget = await cdp.evaluate<boolean>(`
+      return app.vault.adapter.exists(${JSON.stringify(targetDir(configDir))});
+    `);
+    check(
+      "Kein liegen gebliebener Smoke-Zielordner aus einem abgebrochenen frueheren Lauf",
+      !leftoverTarget,
+      leftoverTarget
+        ? `${targetDir(configDir)} gefunden und entfernt — vermutlich Ctrl-C/Crash im vorigen Lauf vor dessen Aufraeumen; dieser Lauf faehrt normal weiter`
+        : "kein Rest im Vault",
+    );
+    if (leftoverTarget) await removeTargetPlugin(cdp, configDir);
+
     await closeExtraLeaves(cdp).catch(() => undefined);
     previousSettings = await cdp.evaluate<string>(
       `return JSON.stringify(app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings ?? {});`,
@@ -2075,45 +2149,12 @@ async function main(): Promise<void> {
     }
   } finally {
     // Aufräumen hängt nie am Ergebnis: auch ein abgebrochener Lauf gibt den Vault so
-    // zurück, wie er ihn vorgefunden hat.
-    await closeModals(cdp).catch(() => undefined);
-    if (!keep) {
-      await removeTargetPlugin(cdp, configDir).catch(() => undefined);
-      await cdp
-        .evaluate(`
-          for (const leaf of app.workspace.getLeavesOfType(${JSON.stringify(VIEW_TYPE)})) leaf.detach();
-          return true;
-        `)
-        .catch(() => undefined);
-    } else {
-      console.log(`(--keep: ${TARGET_PLUGIN_ID} bleibt im Vault stehen)`);
-    }
-
-    // Die Einstellungen zuletzt — und das ERGEBNIS wird gemeldet, nicht vorausgesetzt:
-    // was hier still schiefgeht, lässt eine Testfixtur in den Einstellungen zurück.
-    if (previousSettings !== null) {
-      const endstand = await cdp
-        .evaluate<string>(`
-          const plugin = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
-          if (!plugin) return "(Plugin weg)";
-          for (const key of Object.keys(plugin.settings)) delete plugin.settings[key];
-          Object.assign(plugin.settings, JSON.parse(${JSON.stringify(previousSettings)}));
-          if (plugin.__smokeSecretStore) { plugin.secretStore = plugin.__smokeSecretStore; delete plugin.__smokeSecretStore; }
-          await plugin.saveSettings();
-          await new Promise((r) => setTimeout(r, 600));
-          const pfad = app.vault.configDir + "/plugins/" + ${JSON.stringify(PLUGIN_ID)} + "/data.json";
-          return JSON.stringify(JSON.parse(await app.vault.adapter.read(pfad)));
-        `)
-        .catch(() => "(Fehler)");
-      const soll = JSON.stringify(JSON.parse(previousSettings) as unknown);
-      console.log(
-        endstand === soll
-          ? "Einstellungen zurückgeschrieben: data.json byte-gleich"
-          : `Einstellungen ABWEICHUNG in data.json:\n  vorher:  ${soll}\n  nachher: ${endstand}`,
-      );
-    }
-
-    await releaseAlwaysOnTop(cdp).catch(() => undefined);
+    // zurück, wie er ihn vorgefunden hat. Dieselbe Funktion wie der SIGINT/SIGTERM-Handler
+    // oben — kein Doppelcode.
+    process.off("SIGINT", onAbortSignal);
+    process.off("SIGTERM", onAbortSignal);
+    if (keep) console.log(`(--keep: ${TARGET_PLUGIN_ID} bleibt im Vault stehen)`);
+    await cleanupState();
     cdp.close();
     await forge.stop();
   }
