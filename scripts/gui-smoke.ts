@@ -870,6 +870,18 @@ const SECTIONS: Section[] = [
           updateModal !== null && updateModal.title.includes("1.0.0 → 1.1.0") && neuesManifest !== null,
           updateModal ? `Titel: „${updateModal.title}“ · manifest.json danach: ${neuesManifest ? "1.1.0" : "unveraendert"}` : "kein Update-Confirm",
         );
+        // `updateInstalled` (flows.ts) schreibt die Datei per `await`, laeuft danach aber noch
+        // WEITER in `reloadIfEnabled()` — disablePlugin + enablePlugin fuer genau das Plugin,
+        // das C12 im naechsten Schritt anklickt. Der obige Poll sieht nur die DATEI, nicht den
+        // Abschluss des Reloads; ohne diese Wartephase kann C12s Remove-Klick auf eine Zeile
+        // treffen, die der Reload gerade neu zeichnet (Verdacht aus der Owner-Task — Race
+        // zwischen C11 und C12, gemessen in Welle 3: 41/42 im Volllauf, 13/13 isoliert).
+        await pollUntil<boolean>(
+          cdp,
+          `return app.plugins.plugins[${JSON.stringify(TARGET_PLUGIN_ID)}]?.manifest?.version === "1.1.0" ? true : null;`,
+          10_000,
+          200,
+        );
         return true;
       });
 
