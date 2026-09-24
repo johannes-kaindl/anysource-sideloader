@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **`authorUrl` im Manifest zeigt wieder auf das GitHub-Profil** (`https://github.com/johannes-kaindl`),
+  nach der Rueckkehr in den Community Store.
 - **Schluesselbund-Zugriff kommt jetzt aus `obsidian-kit@0.37.1`** statt aus einer eigenen
   Kopie (`src/obsidian/secrets.ts` entfernt, `src/vendor/kit/secrets.ts` +
   `src/vendor/kit-obsidian/secrets.ts` vendoriert). Sichtbare Folge: `SecretStore` bekommt
