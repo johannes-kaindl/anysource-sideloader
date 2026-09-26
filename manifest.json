@@ -1,7 +1,7 @@
 {
   "id": "anysource-sideloader",
   "name": "AnySource Sideloader",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "minAppVersion": "1.11.4",
   "description": "Install and update plugins from any git forge (GitHub, Forgejo, Gitea, raw URLs) with subscribable catalogs.",
   "author": "Johannes Kaindl",

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.4] — 2026-09-26
+
 ### Changed
 
 - **„Install plugin from URL“: das Adressfeld füllt jetzt die Zeile.** Es saß schmal am rechten Rand, links blieb eine leere Fläche, und der Platzhalter war abgeschnitten. Neu steht der Name „Repository URL“ mit einer Beschreibung über dem Feld (`src/i18n/strings.ts`, `installUrl.fieldName`/`fieldDesc`), das Feld nimmt die volle Breite; die Regel in `styles.css` setzt nur das Layout.
