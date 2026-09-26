@@ -2,6 +2,13 @@
 // in `desc` (Dach-AGENTS.md §10). Jeder nutzersichtbare Text der Tasks 12-13 kommt
 // hierher — nichts wird an der Aufrufstelle formuliert.
 export const STRINGS = {
+  // Hilfe-Zeile oben in den Einstellungen (UI-STANDARD §8); Form `HelpSettingTexts` des Kits.
+  help: {
+    name: "Help",
+    desc: "Getting started, how-tos and troubleshooting",
+    openDocs: "Open documentation",
+    reportIssue: "Report an issue",
+  },
   settings: {
     checkOnStartup: {
       name: "Check for updates on startup",

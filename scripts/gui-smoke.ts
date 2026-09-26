@@ -1226,6 +1226,25 @@ const SECTIONS: Section[] = [
           felder ? `Namen: ${felder.namen.join(" | ").slice(0, 140)} · Toggles: ${felder.toggles}` : "kein Settings-DOM",
         );
 
+        // E10 (UI-STANDARD §8): die Hilfe-Zeile ist die ERSTE Zeile des Tabs und trägt beide
+        // Bedienelemente — den Text-Knopf und den Icon-Knopf (`bug`) mit Tooltip als Namen.
+        const hilfe = await stelle.cdp.evaluate<{ name: string; knoepfe: string[]; icon: string | null } | null>(
+          stelle.inRoot(`
+            const erste = root.querySelector(".setting-item");
+            if (!erste) return null;
+            return {
+              name: erste.querySelector(".setting-item-name")?.textContent?.trim() ?? "",
+              knoepfe: [...erste.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
+              icon: erste.querySelector(".extra-setting-button")?.getAttribute("aria-label") ?? null,
+            };
+          `),
+        );
+        check(
+          "E10 die Hilfe-Zeile steht als erste Zeile im Tab, mit „Open documentation“ und Icon-Knopf",
+          hilfe !== null && hilfe.name === "Help" && hilfe.knoepfe.includes("Open documentation") && hilfe.icon === "Report an issue",
+          hilfe ? `erste Zeile: „${hilfe.name}“ · Knöpfe: ${hilfe.knoepfe.join(",") || "keine"} · Icon: ${hilfe.icon ?? "keiner"}` : "kein Settings-DOM",
+        );
+
         // Die beiden Listen-Einstellungen werden über eine `render`-Hatch gezeichnet
         // (`SettingDefinitionRender`, seit 1.13.0). Gemessen wird, ob dabei eine BEDIENUNG
         // entsteht — nicht, ob der Name dasteht: ein Item mit Namen und ohne Knopf sieht

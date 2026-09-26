@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Setting } from "obsidian";
 import { SideloaderSettingTab, normalizeHost, type SettingsHost } from "../../src/obsidian/settings-tab";
 import { DEFAULT_SETTINGS, type SideloaderSettings } from "../../src/core/settings";
@@ -359,5 +359,33 @@ describe("Zeile eines verwalteten Plugins — Check kippt zu Update", () => {
     expect(knopfTexte(s)).toContain("Check");
     expect(indikator(s)?.hasClass("is-ok")).toBe(true);
     expect(teile(s).some((c) => c.ctaSet)).toBe(false);
+  });
+});
+
+describe("Hilfe-Zeile (UI-STANDARD §8)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  type Hatch = { name?: string; render?: (s: Setting) => void };
+  const erste = (): Hatch => tabFor().getSettingDefinitions()[0] as unknown as Hatch;
+
+  it("ist das ERSTE Element von getSettingDefinitions, vor jeder Gruppe", () => {
+    expect(erste().name).toBe(STRINGS.help.name);
+    expect(typeof erste().render).toBe("function");
+  });
+
+  it("die Knöpfe öffnen Doku-Index und Issues dieses Repos", () => {
+    const open = vi.fn();
+    vi.stubGlobal("window", { open });
+    const setting = new Setting(undefined as never);
+    erste().render?.(setting);
+    const knoepfe = setting.components as unknown as Array<{ clickCB: (() => void) | null }>;
+    expect(knoepfe).toHaveLength(2);
+    knoepfe.forEach((k) => k.clickCB?.());
+    expect(open.mock.calls.map((c) => c[0])).toEqual([
+      "https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/README.md",
+      "https://github.com/johannes-kaindl/anysource-sideloader/issues",
+    ]);
   });
 });

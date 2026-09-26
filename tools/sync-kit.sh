@@ -22,6 +22,9 @@ CODEKIT_REF=${CODEKIT_REF:-0.5.0}
 # calendar-notes/tools/sync-kit.sh): der Rest ist seit 0.30.0 unveraendert vendoriert, das
 # secrets-Modul zieht erst hier ein und nimmt direkt den aktuellen Pin.
 SECRETS_REF=${SECRETS_REF:-0.37.1}
+# help-setting.ts (UI-STANDARD §8, Hilfe-Zeile) ebenso auf einer eigenen Ref: es zieht mit 0.43.0
+# ein, die uebrigen Module bleiben auf ihrem Stand.
+KIT_HELP_REF=${KIT_HELP_REF:-0.43.0}
 
 # Der TAG-Commit, nicht der HEAD des Nachbar-Repos: HEAD steht oft auf einem spaeteren Stand,
 # und ein daraus gelesener SHA widerspraeche der gestempelten Version. (Gemessen 2026-09-02:
@@ -39,6 +42,7 @@ loese_ref() { # $1 repo-dir $2 ref $3 name
 K_SHA=$(loese_ref "$KIT" "$KIT_REF" obsidian-kit)
 CK_SHA=$(loese_ref "$CODEKIT" "$CODEKIT_REF" code-kit)
 SECRETS_SHA=$(loese_ref "$KIT" "$SECRETS_REF" obsidian-kit)
+HELP_SHA=$(loese_ref "$KIT" "$KIT_HELP_REF" obsidian-kit)
 
 # VORPRUEFUNG, bevor irgendetwas geschrieben wird.
 #
@@ -97,6 +101,7 @@ K_QUELLEN="src/testing/obsidian-mock.ts"; for f in $OBS; do K_QUELLEN="$K_QUELLE
 pruefe_quellen "$CODEKIT" "$CODEKIT_REF" code-kit $CK_QUELLEN
 pruefe_quellen "$KIT" "$KIT_REF" obsidian-kit $K_QUELLEN
 pruefe_quellen "$KIT" "$SECRETS_REF" obsidian-kit src/pure/secrets.ts src/obsidian/secrets.ts
+pruefe_quellen "$KIT" "$KIT_HELP_REF" obsidian-kit src/obsidian/help-setting.ts
 
 for f in $PURE; do
   vendor "src/vendor/code-kit/$f.ts" "$CODEKIT" "$CODEKIT_REF" code-kit "$CODEKIT_REF" "src/ts/pure/$f.ts"
@@ -119,8 +124,9 @@ vendor src/vendor/kit-obsidian/secrets.ts "$KIT" "$SECRETS_REF" obsidian-kit "$S
 # relative Tiefe, nur anderer Ordnername).
 sed -i.bak 's#from "\.\./pure/#from "../kit/#g' src/vendor/kit-obsidian/secrets.ts
 rm -f src/vendor/kit-obsidian/secrets.ts.bak
-SECRETS_NOTE="secrets.ts liegt in diesem Verzeichnis auf einer EIGENEN, neueren Ref: obsidian-kit@$SECRETS_REF ($SECRETS_SHA) — s. eigener Datei-Header, nicht diese Basis-Version."
+vendor src/vendor/kit-obsidian/help-setting.ts "$KIT" "$KIT_HELP_REF" obsidian-kit "$KIT_HELP_REF" src/obsidian/help-setting.ts
+SECRETS_NOTE="secrets.ts liegt in diesem Verzeichnis auf einer EIGENEN, neueren Ref: obsidian-kit@$SECRETS_REF ($SECRETS_SHA), help-setting.ts auf obsidian-kit@$KIT_HELP_REF ($HELP_SHA) — s. eigener Datei-Header, nicht diese Basis-Version."
 write_vendor_json src/vendor/kit obsidian-kit "$SECRETS_REF" "$SECRETS_SHA" "secrets.ts"
-write_vendor_json src/vendor/kit-obsidian obsidian-kit "$KIT_REF" "$K_SHA" "$(printf '%s.ts, ' $OBS | sed 's/, $//') + secrets.ts@$SECRETS_REF" "$SECRETS_NOTE"
+write_vendor_json src/vendor/kit-obsidian obsidian-kit "$KIT_REF" "$K_SHA" "$(printf '%s.ts, ' $OBS | sed 's/, $//') + secrets.ts@$SECRETS_REF + help-setting.ts@$KIT_HELP_REF" "$SECRETS_NOTE"
 
 echo "vendored: code-kit@$CODEKIT_REF ($PURE) | obsidian-kit@$KIT_REF ($OBS obsidian-mock) | obsidian-kit@$SECRETS_REF (secrets)"

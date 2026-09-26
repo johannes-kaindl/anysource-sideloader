@@ -34,6 +34,7 @@ import { ReleaseNotesModal } from "./release-notes-modal";
 import { Notice, setIcon } from "obsidian";
 import { refreshSettingsTab, renderSettingDefinitions } from "../vendor/kit-obsidian/settings_walker";
 import { STRINGS } from "../i18n/strings";
+import { githubHelpUrls, helpSettingDefinition } from "../vendor/kit-obsidian/help-setting";
 
 export interface SettingsHost extends Plugin {
   settings: SideloaderSettings;
@@ -262,6 +263,8 @@ export class SideloaderSettingTab extends PluginSettingTab {
     // bei ECHTER Aenderung ein `refresh()` aus — sonst baute der Aufbau sich selbst neu.
     void this.ladeInstallierte().catch(() => undefined);
     return [
+      // UI-STANDARD §8: die Hilfe-Zeile steht vor jeder Gruppe und jeder Zeile.
+      helpSettingDefinition({ ...githubHelpUrls("anysource-sideloader"), texts: STRINGS.help }),
       {
         name: STRINGS.settings.checkOnStartup.name,
         desc: STRINGS.settings.checkOnStartup.desc,
