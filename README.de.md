@@ -1,25 +1,22 @@
 # AnySource Sideloader
 
-[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/LICENSE)
 ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B%20%C2%B7%20desktop%20%26%20mobile-7c3aed)
 
 Obsidian-Plugins von jeder Git-Forge installieren und aktualisieren — GitHub, Forgejo, Gitea
 oder rohe URLs — inklusive abonnierbarer Plugin-Kataloge, ohne auf den Community Store zu
 warten.
 
-*Also available in English: [`README.md`](README.md).*
+*Also available in English: [`README.md`](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/README.md).*
 
 ## Warum es das gibt
 
-Der Community Store hängt an GitHub als einzelnem Ausfallpunkt: Wird ein Konto geflaggt, wird
-jedes Plugin unbenutzbar, dessen Maintainer in die Kehrmaschine gerät. Ein solcher Flag hat an
-einem einzigen Tag 21 Plugins aus dem Store verschwinden lassen — keines davon hatte ein
-Code-Problem, sie hatten nur ihren einzigen Vertriebsweg verloren. AnySource Sideloader nimmt
-diesen einzelnen Ausfallpunkt heraus: Ein Release darf auf *jeder* Forge liegen, und das Plugin
-installiert direkt von dort.
+Nicht jedes Plugin, das man nutzen will, steht im Community Store: eigene Plugins, interne Plugins einer Organisation in einem privaten Repository und Plugins auf einer selbst gehosteten Forge wie Forgejo oder Gitea. AnySource Sideloader installiert und aktualisiert sie direkt von ihren Release-Seiten und hält sie so aktuell, wie der Store es für seine eigenen Plugins tut — mit sichtbarer Prüfung, Release-Notes und einer Bestätigung, bevor etwas angewendet wird. Es ergänzt den Store, statt ihn zu ersetzen: Plugins, die man bereits aus dem Store hat, bleiben unangetastet, solange man sie nicht ausdrücklich verfolgen lässt.
+
+Es nimmt außerdem einen einzelnen Ausfallpunkt heraus. Der Store hängt an GitHub, und wird das Konto eines Maintainers geflaggt, können seine Plugins über Nacht unauffindbar werden — ein solcher Flag hat an einem einzigen Tag 21 Plugins verschwinden lassen, keines davon mit einem Code-Problem. Ein Plugin, dessen Release auch auf einer anderen Forge liegt, bleibt installierbar.
 
 Die vollständige Abwägung, samt dem Preis eines einzigen selbst gehosteten Kanals, steht in
-[Warum es nur einen Vertriebsweg gibt](docs/explanation/why-one-channel.md) (englisch).
+[Warum es nur einen Vertriebsweg gibt](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/why-one-channel.md) (englisch).
 
 ## Funktionen
 
@@ -70,12 +67,11 @@ der Festplatte suchen und keine versteckten Ordner sichtbar machen.
    nötig.
 
 Ausführlich, mit Fehlersuche, Prüfsummen und dem Weg über die Einzeldateien:
-[Install by hand](docs/how-to/manual-install.md) (englisch).
+[Install by hand](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/manual-install.md) (englisch).
 
 ## Bedienung
 
-**Ein Plugin hinzufügen.** Eine Repository-URL einfügen — die Startseite des Repos, nicht ein
-Link auf ein Release oder eine Datei:
+**Ein Plugin hinzufügen.** Den Befehl **Install plugin from URL** ausführen und eine Repository-URL einfügen — die Startseite des Repos, nicht ein Link auf ein Release oder eine Datei:
 
 ```
 https://github.com/user/repo
@@ -83,10 +79,10 @@ https://git.jkaindl.de/jkaindl/some-plugin
 ```
 
 Der Forge-Typ wird automatisch erkannt. → [Add sources and
-catalogs](docs/how-to/add-sources-and-catalogs.md)
+catalogs](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/add-sources-and-catalogs.md)
 
 **Einen Katalog abonnieren.** Ein Katalog ist eine JSON-Datei, die mehrere Plugins auflistet und
-sich per URL abonnieren lässt. Einer ist ab Werk abonniert, damit die Liste beim ersten Start
+sich per URL abonnieren lässt (Einstellungen des Plugins, Abschnitt **Catalogs**). Einer ist ab Werk abonniert, damit die Liste beim ersten Start
 nicht leer ist; die vom Autor dieses Repos gepflegten Plugins erscheinen als:
 
 ```
@@ -95,21 +91,21 @@ https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json
 
 Er liegt in einem eigenen Repository statt in diesem: Ein Katalog listet, *was es gibt*, und das
 hängt nicht am Release-Takt dieses Clients. → [Catalog
-format](docs/reference/catalog-format.md)
+format](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/reference/catalog-format.md)
 
 **Schon Plugins installiert?** Sie werden erkannt, nicht ignoriert. Ein Katalog-Eintrag, dessen
 Plugin bereits vorhanden ist, bietet **Track for updates** statt Install an, und **Track all N
 installed** erledigt den ganzen Satz. Das ist wichtig, weil Update-Prüfungen nur *verwaltete*
-Plugins abdecken. → [Adopt existing plugins](docs/how-to/adopt-existing-plugins.md)
+Plugins abdecken. → [Adopt existing plugins](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/adopt-existing-plugins.md)
 
 **Prüfen und aktualisieren.** **Check now**, das Kommando `check-updates` oder einmal beim
 Start. Jede Zeile trägt ihren eigenen Knopf — **Check**, solange nichts ansteht, **Update to
 `<version>`**, sobald ein neueres Release bekannt ist. Vor dem Anwenden werden die Release-Notes
 gezeigt, und ohne Bestätigung passiert nichts. Der Sideloader aktualisiert sich selbst auf
-demselben Weg. → [Keep plugins up to date](docs/how-to/update-plugins.md)
+demselben Weg. → [Keep plugins up to date](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/update-plugins.md)
 
 **Private Repositories.** Tokens liegen pro Forge-Host in Obsidians Schlüsselbund — nie in
-`data.json`, nie im Klartext. → [Private repositories](docs/how-to/private-repositories.md)
+`data.json`, nie im Klartext. → [Private repositories](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/private-repositories.md)
 
 ## Konfiguration
 
@@ -125,7 +121,7 @@ Konfigurierbar ist zweierlei, beides im Einstellungs-Tab des Plugins:
   aus. Sie liest nur; angewendet wird ohne Bestätigung nie etwas.
 
 Vollständige Liste der Einstellungen, Kommandos und dessen, was in `data.json` steht: [Settings
-and commands](docs/reference/settings-and-commands.md).
+and commands](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/reference/settings-and-commands.md).
 
 ## Wie es funktioniert
 
@@ -137,23 +133,14 @@ and commands](docs/reference/settings-and-commands.md).
   stillschweigend die Plugin-ID austauscht, an die eine Installation gebunden ist.
 
 Was Prüfsummen belegen und was nicht, steht im [security
-model](docs/explanation/security-model.md) — lesenswert, bevor man etwas installiert, das man
+model](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/security-model.md) — lesenswert, bevor man etwas installiert, das man
 nicht selbst geschrieben hat.
 
 ## Dokumentation
 
-Die vollständige Dokumentation liegt in [`docs/`](docs/README.md), gegliedert nach
-[Diátaxis](https://diataxis.fr/) — englisch, damit es nur eine Fassung gibt, die altern kann:
-
-- **[Tutorial](docs/tutorial.md)** — von null zum ersten per Sideload installierten Plugin.
-- **[How-to guides](docs/how-to/index.md)** — manuell installieren, Quellen und Kataloge,
-  Übernahme, private Repos, Updates.
-- **[Reference](docs/reference/index.md)** — Katalog-Schema, Forge-Unterstützung, Einstellungen
-  und Kommandos.
-- **[Explanation](docs/explanation/index.md)** — warum ein Kanal, das Sicherheitsmodell,
-  bekannte Grenzen.
-
-Noch keine Screenshots — ein späterer Durchgang ergänzt sie über den `readme-shots`-Workflow.
+- **[Dokumentations-Index](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/README.md)** — Tutorial, How-to-Anleitungen, Referenz und Hintergrund (englisch, damit es nur eine Fassung gibt, die altern kann).
+- **[Getting started](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/tutorial.md)** — von null zum ersten per Sideload installierten Plugin.
+- **[Troubleshooting](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/troubleshooting.md)** — eine Meldung oder ein Symptom, die Ursache und was zu tun ist.
 
 ## Bekannte Grenzen
 
@@ -163,11 +150,11 @@ Authentizität. Private GitHub-Quellen sind aus einem gemessenen Grund experimen
 Raw-Fallback kennt nur die Branch-Namen `main` und `master`.
 
 Die vollständige Liste — mit dem, was gemessen ist, und dem, was nicht — steht in [Known
-limitations](docs/explanation/limitations.md) und im [security
-model](docs/explanation/security-model.md).
+limitations](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/limitations.md) und im [security
+model](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/security-model.md).
 
 ## Lizenz
 
-- **Code:** AGPL-3.0-or-later ([`LICENSE`](LICENSE)).
+- **Code:** AGPL-3.0-or-later ([`LICENSE`](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/LICENSE)).
 - **Keine Laufzeit-Abhängigkeiten.** Vendorierte Build-/Test-Helfer aus dem eigenen
   `obsidian-kit`/`code-kit` tragen ihre Herkunftsangaben in `src/vendor/`.

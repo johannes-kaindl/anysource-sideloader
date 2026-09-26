@@ -9,11 +9,11 @@ no sidebar view to open.
 
 Available from the command palette; bind hotkeys as you like.
 
-| Command id | Does |
-|---|---|
-| `open-store` | Opens the plugin's settings tab. |
-| `check-updates` | Runs an update check across all tracked plugins. |
-| `install-from-url` | Prompts for a repository URL and installs from it. |
+| Command id | Name in the palette | Does |
+|---|---|---|
+| `open-store` | Open settings | Opens the plugin's settings tab. |
+| `check-updates` | Check for updates | Runs an update check across all tracked plugins. |
+| `install-from-url` | Install plugin from URL | Prompts for a repository URL and installs from it. |
 
 ## Settings
 

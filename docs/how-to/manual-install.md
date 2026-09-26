@@ -82,6 +82,8 @@ list — see [Keeping plugins up to date](update-plugins.md).
 
 ## If something did not work
 
+The full list of messages and symptoms is in [Troubleshooting](troubleshooting.md). The three that belong to this page:
+
 **The plugin does not appear in the list at all.** Check the folder layout from step 4. The
 most common cause is one level too many: `plugins/anysource-sideloader/anysource-sideloader/main.js`
 happens when an archive is extracted into a folder that was created for it first.

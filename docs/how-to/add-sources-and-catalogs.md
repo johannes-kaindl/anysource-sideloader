@@ -7,8 +7,9 @@ a catalog that lists many.
 
 ## Add a single repository
 
-Paste the repository URL into the source field in the plugin's settings. Use the front page
-of the repository — not a link to a release, a tag or a file:
+Run the command **Install plugin from URL** from the command palette and paste the repository
+URL into the dialog. Use the front page of the repository — not a link to a release, a tag or
+a file:
 
 ```
 https://github.com/user/repo
@@ -28,7 +29,8 @@ See [Limitations](../explanation/limitations.md).
 
 ## Subscribe to a catalog
 
-A catalog is a single JSON file listing several plugins. Paste its URL into **Browse
+A catalog is a single JSON file listing several plugins. In the plugin's settings, paste its URL
+under **Catalogs** and use **Add catalog URL**; the entries then appear under **Browse
 catalogs**.
 
 Subscribing gets you the whole list at once, with one-click install per entry, and refreshes

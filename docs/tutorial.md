@@ -54,8 +54,8 @@ land in your vault. Obsidian picks it up.
 
 Catalogs are convenience, not a gate. Any repository works.
 
-In the settings, find the field for adding a source and paste a repository URL — the front
-page of the repo, not a link to a file. For example:
+Open the command palette and run **Install plugin from URL**. A dialog asks for the address; paste
+a repository URL — the front page of the repo, not a link to a file. For example:
 
 ```
 https://git.jkaindl.de/jkaindl/vault-rag

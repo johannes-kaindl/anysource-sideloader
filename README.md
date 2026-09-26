@@ -1,24 +1,30 @@
 # AnySource Sideloader
 
-[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/LICENSE)
 ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B%20%C2%B7%20desktop%20%26%20mobile-7c3aed)
 
 Install and update Obsidian plugins from any git forge — GitHub, Forgejo, Gitea, or raw
 URLs — including subscribable plugin catalogs, without waiting on the Community Store.
 
-*Auch auf Deutsch verfügbar: [`README.de.md`](README.de.md).*
+*Auch auf Deutsch verfügbar: [`README.de.md`](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/README.de.md).*
 
 ## Why this exists
 
-The Community Store depends on GitHub as a single point of failure: when an account gets
-flagged, every plugin whose maintainer is caught in the sweep becomes uninstallable
-overnight. One such flag made 21 plugins disappear from the store in a single day — none of
-them had a code problem, they simply lost their only distribution channel. AnySource
-Sideloader removes that single point of failure by letting a plugin's release live on *any*
-forge and installing from there directly.
+Not every plugin you want to use is in the Community Store: your own plugins, an
+organisation's internal plugins in a private repository, and plugins that live on a
+self-hosted forge such as Forgejo or Gitea. AnySource Sideloader installs and updates these
+straight from their release pages, and keeps them up to date the way the Store does for its own
+plugins — with a visible check, release notes and a confirmation before anything is applied.
+It is a complement to the Store, not a replacement: plugins you already have from the Store
+are left alone unless you choose to track them.
+
+It also removes a single point of failure. The Store depends on GitHub, and when a maintainer's
+account is flagged, their plugins can become uninstallable overnight — one such flag made 21
+plugins disappear in a single day, none of them with a code problem. A plugin whose release
+also lives on another forge stays installable.
 
 The full trade-off, including what a single self-hosted channel costs, is in
-[Why there is only one distribution channel](docs/explanation/why-one-channel.md).
+[Why there is only one distribution channel](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/why-one-channel.md).
 
 ## Features
 
@@ -65,12 +71,11 @@ disk and you do not need to unhide hidden folders.
 5. **Click *Reload plugins*** and switch **AnySource Sideloader** on. No restart needed.
 
 Longer version with troubleshooting, checksum verification and the individual-file route:
-[Install by hand](docs/how-to/manual-install.md).
+[Install by hand](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/manual-install.md).
 
 ## Usage
 
-**Add a plugin.** Paste a repository URL — the front page of the repo, not a release or file
-link:
+**Add a plugin.** Run the command **Install plugin from URL** and paste a repository URL — the front page of the repo, not a release or file link:
 
 ```
 https://github.com/user/repo
@@ -78,10 +83,10 @@ https://git.jkaindl.de/jkaindl/some-plugin
 ```
 
 The forge type is detected automatically. → [Add sources and
-catalogs](docs/how-to/add-sources-and-catalogs.md)
+catalogs](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/add-sources-and-catalogs.md)
 
 **Subscribe to a catalog.** A catalog is one JSON file listing several plugins, subscribable by
-URL. One is subscribed out of the box so the browse list is not empty; the plugins maintained by
+URL under **Catalogs** in the plugin's settings. One is subscribed out of the box so the browse list is not empty; the plugins maintained by
 this repo's author are published as:
 
 ```
@@ -89,22 +94,22 @@ https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json
 ```
 
 It lives in its own repository rather than in this one: a catalog lists what exists, and that is
-not tied to this client's release cycle. → [Catalog format](docs/reference/catalog-format.md)
+not tied to this client's release cycle. → [Catalog format](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/reference/catalog-format.md)
 
 **Already have plugins installed?** They are recognised, not ignored. A catalog entry whose
 plugin is already present offers **Track for updates** instead of Install, and **Track all N
 installed** does the whole set. This matters because update checks only cover *tracked* plugins.
-→ [Adopt existing plugins](docs/how-to/adopt-existing-plugins.md)
+→ [Adopt existing plugins](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/adopt-existing-plugins.md)
 
 **Check and update.** **Check now**, the `check-updates` command, or once on startup. Each row
 carries its own button — **Check** while nothing is pending, **Update to `<version>`** once a
 newer release is known. Release notes are shown before anything is applied, and nothing is
 applied without confirmation. The Sideloader updates itself the same way. → [Keep plugins up to
-date](docs/how-to/update-plugins.md)
+date](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/update-plugins.md)
 
 **Private repositories.** Tokens are stored per forge host in Obsidian's keychain — never in
 `data.json`, never in plain text. → [Private
-repositories](docs/how-to/private-repositories.md)
+repositories](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/private-repositories.md)
 
 ## Configuration
 
@@ -119,7 +124,7 @@ Two things are configurable, both in the plugin's settings tab:
   starts. It reads only; nothing is ever applied without confirmation.
 
 Full list of settings, commands and what is written to `data.json`: [Settings and
-commands](docs/reference/settings-and-commands.md).
+commands](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/reference/settings-and-commands.md).
 
 ## How it works
 
@@ -131,23 +136,14 @@ commands](docs/reference/settings-and-commands.md).
   the plugin id an install is bound to.
 
 What checksums do and do not prove is set out in [the security
-model](docs/explanation/security-model.md) — worth reading before installing anything you did
+model](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/security-model.md) — worth reading before installing anything you did
 not write.
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/README.md), organised after
-[Diátaxis](https://diataxis.fr/):
-
-- **[Tutorial](docs/tutorial.md)** — from nothing to your first sideloaded plugin.
-- **[How-to guides](docs/how-to/index.md)** — installing by hand, sources and catalogs,
-  adoption, private repos, updates.
-- **[Reference](docs/reference/index.md)** — catalog schema, forge support, settings and
-  commands.
-- **[Explanation](docs/explanation/index.md)** — why one channel, the security model, known
-  limitations.
-
-No screenshots yet — a follow-up pass will add them via the `readme-shots` workflow.
+- **[Documentation index](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/README.md)** — tutorial, how-to guides, reference and explanation.
+- **[Getting started](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/tutorial.md)** — from nothing to your first sideloaded plugin.
+- **[Troubleshooting](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/troubleshooting.md)** — a message or symptom, its cause, and what to do.
 
 ## Known limitations
 
@@ -157,11 +153,11 @@ GitHub sources are experimental for a measured reason, and the raw fallback only
 branch names `main` and `master`.
 
 The complete list, with what is measured and what is not, is in [Known
-limitations](docs/explanation/limitations.md) and [the security
-model](docs/explanation/security-model.md).
+limitations](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/limitations.md) and [the security
+model](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/explanation/security-model.md).
 
 ## License
 
-- **Code:** AGPL-3.0-or-later ([`LICENSE`](LICENSE)).
+- **Code:** AGPL-3.0-or-later ([`LICENSE`](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/LICENSE)).
 - **No runtime dependencies.** Vendored build/test helpers from the author's own
   `obsidian-kit`/`code-kit` carry their provenance headers in `src/vendor/`.

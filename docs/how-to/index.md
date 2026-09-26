@@ -11,5 +11,6 @@
   update control without reinstalling.
 - [Use private repositories](private-repositories.md) — per-host tokens, and the organisation
   case.
+- [Troubleshooting](troubleshooting.md) — a message or symptom, its cause, and what to do.
 - [Keep plugins up to date](update-plugins.md) — checking, applying, and updating the
   Sideloader itself.
