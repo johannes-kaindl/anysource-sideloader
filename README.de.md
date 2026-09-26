@@ -1,6 +1,7 @@
 # AnySource Sideloader
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/johannes-kaindl/anysource-sideloader)](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest)
 ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B%20%C2%B7%20desktop%20%26%20mobile-7c3aed)
 
 Obsidian-Plugins von jeder Git-Forge installieren und aktualisieren — GitHub, Forgejo, Gitea
@@ -56,17 +57,13 @@ der Festplatte suchen und keine versteckten Ordner sichtbar machen.
 1. **Community-Plugins erlauben.** Einstellungen → Community-Plugins; bietet die Seite
    **„Exit Restricted mode"** an, zuerst darauf klicken. Ein Plugin, das exakt richtig liegt,
    lädt im eingeschränkten Modus trotzdem nicht — ohne Fehlermeldung, die das sagen würde.
-2. **Herunterladen:** [`anysource-sideloader.zip`](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/anysource-sideloader.zip).
-   Dieser Link zeigt immer auf das neueste Release.
-3. **Den Plugin-Ordner aus Obsidian heraus öffnen** — weiterhin unter Community-Plugins auf das
-   Ordner-Symbol neben *Installed plugins* klicken (*Open plugins folder*). Der Dateimanager
-   öffnet sich direkt in `<vault>/.obsidian/plugins/`.
-4. **Das Archiv dort entpacken.** Es enthält bereits einen korrekt benannten Ordner
-   `anysource-sideloader/` — es ist nichts anzulegen und nichts abzutippen.
+2. **Die drei Dateien herunterladen** vom [neuesten GitHub-Release](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest): [`main.js`](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest/download/main.js), [`manifest.json`](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest/download/manifest.json) und [`styles.css`](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest/download/styles.css). Diese Links zeigen immer auf das neueste Release.
+3. **Den Plugin-Ordner aus Obsidian heraus öffnen** — weiterhin unter Community-Plugins auf das Ordner-Symbol neben *Installed plugins* klicken (*Open plugins folder*). Der Dateimanager öffnet sich direkt in `<vault>/.obsidian/plugins/`.
+4. **Dort einen Ordner `anysource-sideloader` anlegen** und die drei Dateien direkt hineinlegen.
 5. **Auf *Reload plugins* klicken** und **AnySource Sideloader** einschalten. Kein Neustart
    nötig.
 
-Ausführlich, mit Fehlersuche, Prüfsummen und dem Weg über die Einzeldateien:
+Ausführlich, mit Ordner-Aufbau und Fehlersuche:
 [Install by hand](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/manual-install.md) (englisch).
 
 ## Bedienung

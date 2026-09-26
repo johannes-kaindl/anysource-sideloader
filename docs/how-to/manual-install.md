@@ -28,13 +28,15 @@ plugin sitting perfectly in the right folder simply never loads — with no erro
 and nothing in the console. If you install first and hit this afterwards, the symptom looks
 exactly like a broken plugin.
 
-### 2. Download the plugin
+### 2. Download the three files
 
-[**Download `anysource-sideloader.zip`**](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/anysource-sideloader.zip)
+Open the [latest GitHub release](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest) and save these three files, or use the direct links:
 
-That link always points at the newest release; it does not need updating when a new version
-comes out. The archive contains a single folder, `anysource-sideloader/`, already named the
-way Obsidian needs it.
+- [`main.js`](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest/download/main.js)
+- [`manifest.json`](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest/download/manifest.json)
+- [`styles.css`](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest/download/styles.css)
+
+Those links always point at the newest release; they do not need updating when a new version comes out. Use *Save link as…* and make sure the file names survive unchanged.
 
 ### 3. Open the plugins folder from inside Obsidian
 
@@ -46,10 +48,9 @@ would otherwise be different on every operating system: `.obsidian` is a hidden 
 revealing hidden folders takes a different keystroke in Finder, Explorer and every Linux file
 manager. Letting Obsidian open it removes the problem instead of explaining it three times.
 
-### 4. Unpack the archive there
+### 4. Create the plugin folder and put the files in it
 
-Move or extract `anysource-sideloader.zip` into the folder that just opened, so that you end
-up with:
+In the folder that just opened, create a new folder named `anysource-sideloader` and move the three files into it, so that you end up with:
 
 ```
 <your vault>/.obsidian/plugins/anysource-sideloader/
@@ -58,9 +59,7 @@ up with:
     styles.css
 ```
 
-Double-clicking the archive extracts it in place on all three systems. If your browser already
-unpacked it into your Downloads folder, drag the resulting `anysource-sideloader` folder over
-instead — the folder, not the three loose files.
+The folder name has to be exactly `anysource-sideloader`, and the three files must sit directly in it — not in a subfolder.
 
 ### 5. Load it
 
@@ -86,21 +85,13 @@ The full list of messages and symptoms is in [Troubleshooting](troubleshooting.m
 
 **The plugin does not appear in the list at all.** Check the folder layout from step 4. The
 most common cause is one level too many: `plugins/anysource-sideloader/anysource-sideloader/main.js`
-happens when an archive is extracted into a folder that was created for it first.
+happens when the folder is created inside a folder of the same name.
 
 **It appears but will not switch on.** You are probably still in Restricted mode — go back to
 step 1. This is worth re-checking even if you are sure, because every other indicator looks
 healthy in that state.
 
-**Your browser saved `main.js` as a text file.** That happens when the individual files are
-downloaded instead of the archive: the forge serves them as `text/plain`, so a browser shows
-them rather than saving them, and some browsers then append `.txt`. Use the `.zip` from step 2.
-If you do want the individual files, the direct links are
-[`main.js`](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/main.js),
-[`manifest.json`](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/manifest.json)
-and
-[`styles.css`](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/styles.css)
-— use *Save link as…* on each, and make sure the names survive.
+**Your browser saved `main.js` as `main.js.txt`.** Some browsers append `.txt` to files they would rather display than save. Rename the file back to `main.js` (on Windows, make file name extensions visible first), or use *Save link as…* from the list in step 2.
 
 ## On mobile
 
@@ -110,12 +101,10 @@ once on a desktop; if that vault syncs to your phone, the plugin arrives with it
 
 ## Verifying the download
 
-Every release also carries `checksums.sha256` covering all of its assets, including the archive.
+The release on the author's own forge also carries a ready-made archive, `anysource-sideloader.zip`, and a `checksums.sha256` file covering every asset. If you want to compare a download against it:
 
 ```
-shasum -a 256 anysource-sideloader.zip     # macOS / Linux
+shasum -a 256 main.js     # macOS / Linux
 ```
 
-Compare the result with the line for `anysource-sideloader.zip` in
-[`checksums.sha256`](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/checksums.sha256).
-What this proves and what it does not is in [the security model](../explanation/security-model.md).
+Compare the result with the line for `main.js` in [`checksums.sha256`](https://git.jkaindl.de/jkaindl/anysource-sideloader/releases/download/latest/checksums.sha256). What this proves and what it does not is in [the security model](../explanation/security-model.md).

@@ -6,7 +6,7 @@
 
 ### The plugin does not appear in *Installed plugins* at all
 
-**Cause:** the folder layout is wrong. The most common form is one level too many: `plugins/anysource-sideloader/anysource-sideloader/main.js`, which happens when an archive is extracted into a folder that was created for it first.
+**Cause:** the folder layout is wrong. The most common form is one level too many: `plugins/anysource-sideloader/anysource-sideloader/main.js`.
 
 **Fix:** the three files `main.js`, `manifest.json` and `styles.css` must sit directly in `<vault>/.obsidian/plugins/anysource-sideloader/`. See [Install by hand](manual-install.md), step 4.
 

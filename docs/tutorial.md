@@ -18,8 +18,7 @@ This is the one manual step, and it is written out in full in
 [How to install AnySource Sideloader by hand](how-to/manual-install.md). Follow it, then
 come back here.
 
-Short version: exit Restricted mode, download the `.zip`, click the folder icon next to
-*Installed plugins*, unpack it there, click *Reload plugins*, switch it on.
+Short version: exit Restricted mode, download `main.js`, `manifest.json` and `styles.css` from the latest release, click the folder icon next to *Installed plugins*, put the three files into a new folder `anysource-sideloader` there, click *Reload plugins*, switch it on.
 
 When you can open **Settings → AnySource Sideloader** and see a **Check now** button, you
 are done with step 1.
