@@ -1,0 +1,31 @@
+{
+  "plugins": [
+    {
+      "id": "acme-timeline",
+      "repoUrl": "https://forge.example.com/acme-labs/acme-timeline",
+      "ref": { "kind": "gitea", "baseUrl": "https://forge.example.com", "owner": "acme-labs", "repo": "acme-timeline" },
+      "installedVersion": "1.2.0",
+      "availableVersion": "1.3.0",
+      "addedFrom": "catalog"
+    },
+    {
+      "id": "daily-recap",
+      "repoUrl": "https://forge.example.com/acme-labs/daily-recap",
+      "ref": { "kind": "gitea", "baseUrl": "https://forge.example.com", "owner": "acme-labs", "repo": "daily-recap" },
+      "installedVersion": "2.0.1",
+      "availableVersion": "2.1.0",
+      "addedFrom": "url"
+    },
+    {
+      "id": "quick-tables",
+      "repoUrl": "https://github.com/jane-doe/quick-tables",
+      "ref": { "kind": "github", "baseUrl": "https://github.com", "owner": "jane-doe", "repo": "quick-tables" },
+      "installedVersion": "0.9.4",
+      "availableVersion": null,
+      "addedFrom": "catalog"
+    }
+  ],
+  "untrackedInstalled": [
+    { "id": "vault-weather", "name": "Vault Weather", "version": "0.3.0" }
+  ]
+}

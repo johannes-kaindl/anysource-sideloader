@@ -1,0 +1,46 @@
+{
+  "catalogVersion": 1,
+  "name": "Acme Labs — Example Plugins",
+  "plugins": [
+    {
+      "id": "acme-timeline",
+      "name": "Acme Timeline",
+      "description": "Lay out notes with dates on a scrollable timeline.",
+      "repo": "https://forge.example.com/acme-labs/acme-timeline",
+      "author": "Acme Labs",
+      "tags": ["timeline", "dates"]
+    },
+    {
+      "id": "quick-tables",
+      "name": "Quick Tables",
+      "description": "Edit Markdown tables with keyboard shortcuts.",
+      "repo": "https://github.com/jane-doe/quick-tables",
+      "author": "Jane Doe",
+      "tags": ["tables", "editing"]
+    },
+    {
+      "id": "vault-weather",
+      "name": "Vault Weather",
+      "description": "Show today's forecast in the status bar.",
+      "repo": "https://forge.example.com/acme-labs/vault-weather",
+      "author": "Acme Labs",
+      "tags": ["status bar"]
+    },
+    {
+      "id": "reading-queue",
+      "name": "Reading Queue",
+      "description": "Keep a queue of articles and books to read next.",
+      "repo": "https://github.com/jane-doe/reading-queue",
+      "author": "Jane Doe",
+      "tags": ["reading", "queue"]
+    },
+    {
+      "id": "citation-picker",
+      "name": "Citation Picker",
+      "description": "Insert citations from a bibliography file.",
+      "repo": "https://forge.example.com/acme-labs/citation-picker",
+      "author": "Acme Labs",
+      "tags": ["research", "citations"]
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 [![Release](https://img.shields.io/github/v/release/johannes-kaindl/anysource-sideloader)](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest)
 ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B%20%C2%B7%20desktop%20%26%20mobile-7c3aed)
 
+<p align="center"><img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/hero.png" width="820" alt="The plugin's settings tab: two pending updates with Update and Release notes buttons, and a list of installed plugins with their versions and forge hosts"></p>
+
 Install and update Obsidian plugins from any git forge — GitHub, Forgejo, Gitea, or raw
 URLs — including subscribable plugin catalogs, without waiting on the Community Store.
 
@@ -82,6 +84,9 @@ https://git.jkaindl.de/jkaindl/some-plugin
 The forge type is detected automatically. → [Add sources and
 catalogs](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/add-sources-and-catalogs.md)
 
+<a href="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/install-url.png"><img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/thumbs/install-url.png" width="380" alt="The Install plugin from URL dialog with a repository address entered"></a><br><sub>Click the preview for the full-size dialog</sub>
+
+
 **Subscribe to a catalog.** A catalog is one JSON file listing several plugins, subscribable by
 URL under **Catalogs** in the plugin's settings. One is subscribed out of the box so the browse list is not empty; the plugins maintained by
 this repo's author are published as:
@@ -92,6 +97,9 @@ https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json
 
 It lives in its own repository rather than in this one: a catalog lists what exists, and that is
 not tied to this client's release cycle. → [Catalog format](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/reference/catalog-format.md)
+
+<img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/catalog.png" width="820" alt="The Browse catalogs section: entries shown as installed with an update available, installed and current, installed but not tracked, and not installed">
+
 
 **Already have plugins installed?** They are recognised, not ignored. A catalog entry whose
 plugin is already present offers **Track for updates** instead of Install, and **Track all N

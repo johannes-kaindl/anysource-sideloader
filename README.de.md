@@ -4,6 +4,8 @@
 [![Release](https://img.shields.io/github/v/release/johannes-kaindl/anysource-sideloader)](https://github.com/johannes-kaindl/anysource-sideloader/releases/latest)
 ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B%20%C2%B7%20desktop%20%26%20mobile-7c3aed)
 
+<p align="center"><img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/hero.png" width="820" alt="The plugin's settings tab: two pending updates with Update and Release notes buttons, and a list of installed plugins with their versions and forge hosts"></p>
+
 Obsidian-Plugins von jeder Git-Forge installieren und aktualisieren — GitHub, Forgejo, Gitea
 oder rohe URLs — inklusive abonnierbarer Plugin-Kataloge, ohne auf den Community Store zu
 warten.
@@ -78,6 +80,9 @@ https://git.jkaindl.de/jkaindl/some-plugin
 Der Forge-Typ wird automatisch erkannt. → [Add sources and
 catalogs](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/add-sources-and-catalogs.md)
 
+<a href="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/install-url.png"><img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/thumbs/install-url.png" width="380" alt="Das Fenster Install plugin from URL mit eingetragener Repository-Adresse"></a><br><sub>Vorschau anklicken für die volle Größe</sub>
+
+
 **Einen Katalog abonnieren.** Ein Katalog ist eine JSON-Datei, die mehrere Plugins auflistet und
 sich per URL abonnieren lässt (Einstellungen des Plugins, Abschnitt **Catalogs**). Einer ist ab Werk abonniert, damit die Liste beim ersten Start
 nicht leer ist; die vom Autor dieses Repos gepflegten Plugins erscheinen als:
@@ -89,6 +94,9 @@ https://git.jkaindl.de/jkaindl/obsidian-catalog/raw/branch/main/catalog.json
 Er liegt in einem eigenen Repository statt in diesem: Ein Katalog listet, *was es gibt*, und das
 hängt nicht am Release-Takt dieses Clients. → [Catalog
 format](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/reference/catalog-format.md)
+
+<img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/catalog.png" width="820" alt="Die Sektion Browse catalogs: Einträge als installiert mit verfügbarem Update, installiert und aktuell, installiert aber nicht verfolgt und nicht installiert">
+
 
 **Schon Plugins installiert?** Sie werden erkannt, nicht ignoriert. Ein Katalog-Eintrag, dessen
 Plugin bereits vorhanden ist, bietet **Track for updates** statt Install an, und **Track all N
