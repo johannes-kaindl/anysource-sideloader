@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **„Install plugin from URL“: das Adressfeld füllt jetzt die Zeile.** Es saß schmal am rechten Rand, links blieb eine leere Fläche, und der Platzhalter war abgeschnitten. Neu steht der Name „Repository URL“ mit einer Beschreibung über dem Feld (`src/i18n/strings.ts`, `installUrl.fieldName`/`fieldDesc`), das Feld nimmt die volle Breite; die Regel in `styles.css` setzt nur das Layout.
+
+### Documentation
+
+- Neue Seite `docs/how-to/troubleshooting.md` (Meldung → Ursache → Abhilfe), README-Links absolut, Erstinstallation über die drei GitHub-Release-Dateien, README-Bilder.
+- Korrigiert: die Doku nannte ein „source field“ in den Einstellungen. Ein Repository fügt man über den Befehl „Install plugin from URL“ hinzu, Katalog-URLs unter „Catalogs“.
+
 ## [0.4.3] — 2026-09-24
 
 ### Changed

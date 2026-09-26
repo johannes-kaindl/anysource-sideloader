@@ -24,7 +24,7 @@ Ein Motiv wurde bewusst **nicht** aufgenommen: die Bestätigungsdialoge für Ins
 |---|---|---|---|
 | `hero.png` | hero | `README.md`, `README.de.md` (Kopf) | Den Kopf des Einstellungs-Tabs: **Check for updates on startup**, **Check for updates now** mit **Check now**, darunter **Updates** mit zwei fälligen Plugins (**Update**, **Release notes**) und **Installed plugins** mit drei Zeilen (zwei mit **Update to …**, eine mit **Up to date**). Endet vor der Überschrift **Browse catalogs**. |
 | `catalog.png` | feature | `README.md`, `README.de.md` (Usage) | Die Sektion **Browse catalogs** mit allen vier Zuständen einer Katalog-Zeile: **Installed 1.2.0 — 1.3.0 available**, **Installed 0.9.4**, **Installed 0.3.0 — not tracked** mit **Track for updates**, und zweimal **Install**. Oben **Track all 1 installed**. |
-| `install-url.png` | detail | `README.md`, `README.de.md` (Usage) | Das Fenster des Befehls **Install plugin from URL** mit eingetragener Repository-Adresse und dem Knopf **Install**. |
+| `install-url.png` | detail | `README.md`, `README.de.md` (Usage) | Das Fenster des Befehls **Install plugin from URL**: Name **Repository URL** mit Beschreibung über einem Feld in voller Breite, darin eine vollständig lesbare Repository-Adresse, darunter der Knopf **Install**. |
 
 ## Beispieldaten
 

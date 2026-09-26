@@ -19,18 +19,24 @@ export class InstallUrlModal extends Modal {
   onOpen(): void {
     this.titleEl.setText(STRINGS.installUrl.title);
 
-    new Setting(this.contentEl).addText((text) => {
-      text.setPlaceholder(STRINGS.installUrl.placeholder).onChange((v) => {
-        this.value = v;
+    // Name und Beschreibung stehen ueber dem Feld, das Feld fuellt die Zeile (asl-url-field):
+    // eine Adresse ist lang, und ein Feld von Standardbreite schnitt sie im Platzhalter ab.
+    new Setting(this.contentEl)
+      .setName(STRINGS.installUrl.fieldName)
+      .setDesc(STRINGS.installUrl.fieldDesc)
+      .setClass("asl-url-field")
+      .addText((text) => {
+        text.setPlaceholder(STRINGS.installUrl.placeholder).onChange((v) => {
+          this.value = v;
+        });
+        text.inputEl.addEventListener("keydown", (evt) => {
+          if (evt.key === "Enter") {
+            evt.preventDefault();
+            this.submit();
+          }
+        });
+        window.setTimeout(() => text.inputEl.focus(), 0);
       });
-      text.inputEl.addEventListener("keydown", (evt) => {
-        if (evt.key === "Enter") {
-          evt.preventDefault();
-          this.submit();
-        }
-      });
-      window.setTimeout(() => text.inputEl.focus(), 0);
-    });
 
     const btns = this.contentEl.createDiv({ cls: "modal-button-container" });
     new ButtonComponent(btns).setButtonText(STRINGS.installUrl.submit).setCta().onClick(() => {

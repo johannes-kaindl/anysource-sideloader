@@ -27,3 +27,9 @@
    eine Setting-Zeile ohne Namen — ohne diese Regel bliebe sie unsichtbar. */
 .setting-item.asl-empty { border-top: none; padding-top: 0; }
 .setting-item.asl-empty .setting-item-description { color: var(--text-muted); }
+
+/* „Install plugin from URL“: Name und Beschreibung ueber dem Feld, das Feld fuellt die Zeile.
+   Nur Layout, keine Farben — alles Sichtbare kommt vom Theme. */
+.setting-item.asl-url-field { flex-direction: column; align-items: stretch; }
+.setting-item.asl-url-field .setting-item-control { justify-content: stretch; }
+.setting-item.asl-url-field input { width: 100%; }

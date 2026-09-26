@@ -68,6 +68,8 @@ export const STRINGS = {
     commandName: "Install plugin from URL",
     title: "Install plugin from URL",
     placeholder: "https://github.com/owner/repo",
+    fieldName: "Repository URL",
+    fieldDesc: "The front page of the repository, not a link to a release or a file. GitHub, Forgejo, Gitea and raw file URLs are recognised.",
     submit: "Install",
   },
   releaseNotes: {
