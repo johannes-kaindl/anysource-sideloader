@@ -112,6 +112,8 @@ demselben Weg. → [Keep plugins up to date](https://github.com/johannes-kaindl/
 **Private Repositories.** Tokens liegen pro Forge-Host in Obsidians Schlüsselbund — nie in
 `data.json`, nie im Klartext. → [Private repositories](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/private-repositories.md)
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/tokens.png" width="820" alt="Die Sektion Access tokens: ein Forge-Host mit Link-Knopf für sein Token im Schlüsselbund, Papierkorb-Knopf zum Entfernen und ein Feld für einen weiteren Host">
+
 ## Konfiguration
 
 Konfigurierbar ist zweierlei, beides im Einstellungs-Tab des Plugins:

@@ -116,6 +116,8 @@ date](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how
 `data.json`, never in plain text. → [Private
 repositories](https://github.com/johannes-kaindl/anysource-sideloader/blob/main/docs/how-to/private-repositories.md)
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/anysource-sideloader/main/docs/images/tokens.png" width="820" alt="The Access tokens section: one forge host with a Link button for its keychain token, a trash button to remove it, and a field to add another host">
+
 ## Configuration
 
 Two things are configurable, both in the plugin's settings tab:

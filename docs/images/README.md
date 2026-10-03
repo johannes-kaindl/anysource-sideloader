@@ -6,7 +6,7 @@ Geprüft wird der Vertrag automatisch: `readme_lint.py` (Workspace-Werkzeug, auf
 
 ## Status
 
-**Stand 2026-09-26: alle drei Aufnahmen stehen.** Aufgenommen in einer Zweitinstanz (eigenes `--user-data-dir`, Debug-Port 9326, Oberfläche Englisch, helles Theme), die reguläre Instanz auf 9222 wurde nicht berührt. Jedes Bild wurde nach dem Lauf angesehen.
+**Stand 2026-09-26: alle vier Aufnahmen stehen** (`tokens.png` am 2026-10-03 ergänzt). Aufgenommen in einer Zweitinstanz (eigenes `--user-data-dir`, Debug-Port 9326 bzw. 9406, Oberfläche Englisch, helles Theme), die reguläre Instanz auf 9222 wurde nicht berührt. Jedes Bild wurde nach dem Lauf angesehen.
 
 Ein Motiv wurde bewusst **nicht** aufgenommen: die Bestätigungsdialoge für Installation und Update. Sie erscheinen erst nach einem Netzzugriff auf eine Forge und würden dort einen echten Plugin-Namen zeigen; der Aufnahme-Treiber hat absichtlich keine Gegenstelle außer dem lokalen Katalog.
 
@@ -24,6 +24,7 @@ Ein Motiv wurde bewusst **nicht** aufgenommen: die Bestätigungsdialoge für Ins
 |---|---|---|---|
 | `hero.png` | hero | `README.md`, `README.de.md` (Kopf) | Den Kopf des Einstellungs-Tabs: **Check for updates on startup**, **Check for updates now** mit **Check now**, darunter **Updates** mit zwei fälligen Plugins (**Update**, **Release notes**) und **Installed plugins** mit drei Zeilen (zwei mit **Update to …**, eine mit **Up to date**). Endet vor der Überschrift **Browse catalogs**. |
 | `catalog.png` | feature | `README.md`, `README.de.md` (Usage) | Die Sektion **Browse catalogs** mit allen vier Zuständen einer Katalog-Zeile: **Installed 1.2.0 — 1.3.0 available**, **Installed 0.9.4**, **Installed 0.3.0 — not tracked** mit **Track for updates**, und zweimal **Install**. Oben **Track all 1 installed**. |
+| `tokens.png` | feature | `README.md`, `README.de.md` (Usage) | Die Sektion **Access tokens** mit ihrer Hilfezeile, einer Host-Zeile `forge.example.com` (**Link…**, Papierkorb) und dem Feld **Add host**. Kein Geheimnis sichtbar: der Eintrag verweist nur auf einen Schlüsselbund-Namen, den es nicht gibt. |
 | `install-url.png` | detail | `README.md`, `README.de.md` (Usage) | Das Fenster des Befehls **Install plugin from URL**: Name **Repository URL** mit Beschreibung über einem Feld in voller Breite, darin eine vollständig lesbare Repository-Adresse, darunter der Knopf **Install**. |
 
 ## Beispieldaten

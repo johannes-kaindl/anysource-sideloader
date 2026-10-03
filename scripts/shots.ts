@@ -208,6 +208,36 @@ const SHOTS: Shot[] = [
       return { x: pane.left, y, width: pane.width, height: Math.min(ende - y, pane.width * 0.98) };`);
   }),
   settingsBild("catalog.png", "feature", (f) => sektionBox(f, "Browse catalogs", "Catalogs")),
+  // Zugriffs-Token: eine Host-Zeile ohne Geheimnis (der Eintrag verweist nur auf einen
+  // Schluesselbund-Namen, den es nicht gibt) — das Bild zeigt die Bedienung, keinen Wert.
+  {
+    name: "tokens.png",
+    klasse: "feature",
+    async run(ctx) {
+      await ctx.workspace.evaluate(`
+        const plugin = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+        plugin.settings.hostSecrets = { "forge.example.com": "anysource-sideloader-demo-forge-example-com" };
+        await plugin.saveSettings();
+        return true;
+      `);
+      const fenster = await einstellungenOeffnen(ctx);
+      if (!fenster) return null;
+      const box = await sektionBox(fenster, "Access tokens", null);
+      if (box) {
+        // Nach dem Kasten nur ~24 px Rand lassen, kein Leerraum bis zum Fensterende.
+        const unten = await fenster.evaluate<number>(`
+          const items = [...document.querySelectorAll(".vertical-tab-content .setting-item")];
+          return Math.max(...items.map((i) => i.getBoundingClientRect().bottom));
+        `);
+        box.height = Math.min(box.height, unten + 24 - box.y);
+      }
+      if (!box) {
+        await settingsSchliessen(ctx, fenster);
+        return null;
+      }
+      return { cdp: fenster, box };
+    },
+  },
   {
     name: "install-url.png",
     klasse: "detail",
