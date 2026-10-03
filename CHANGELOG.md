@@ -20,26 +20,26 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- **„Install plugin from URL“: das Adressfeld füllt jetzt die Zeile.** Es saß schmal am rechten Rand, links blieb eine leere Fläche, und der Platzhalter war abgeschnitten. Neu steht der Name „Repository URL“ mit einer Beschreibung über dem Feld (`src/i18n/strings.ts`, `installUrl.fieldName`/`fieldDesc`), das Feld nimmt die volle Breite; die Regel in `styles.css` setzt nur das Layout.
+- **“Install plugin from URL”: the address field now fills the row.** It used to sit narrow at the right edge, leaving an empty area on the left, and the placeholder was cut off. The name “Repository URL” now appears with a description above the field (`src/i18n/strings.ts`, `installUrl.fieldName`/`fieldDesc`), and the field takes the full width; the rule in `styles.css` only sets the layout.
 
 ### Documentation
 
-- Neue Seite `docs/how-to/troubleshooting.md` (Meldung → Ursache → Abhilfe), README-Links absolut, Erstinstallation über die drei GitHub-Release-Dateien, README-Bilder.
-- Korrigiert: die Doku nannte ein „source field“ in den Einstellungen. Ein Repository fügt man über den Befehl „Install plugin from URL“ hinzu, Katalog-URLs unter „Catalogs“.
+- New page `docs/how-to/troubleshooting.md` (message → cause → remedy), absolute README links, first install via the three GitHub release files, README images.
+- Corrected: the documentation mentioned a “source field” in the settings. A repository is added through the “Install plugin from URL” command, catalog URLs under “Catalogs”.
 
 ## [0.4.3] — 2026-09-24
 
 ### Changed
 
-- **`authorUrl` im Manifest zeigt wieder auf das GitHub-Profil** (`https://github.com/johannes-kaindl`),
-  nach der Rueckkehr in den Community Store.
-- **Schluesselbund-Zugriff kommt jetzt aus `obsidian-kit@0.37.1`** statt aus einer eigenen
-  Kopie (`src/obsidian/secrets.ts` entfernt, `src/vendor/kit/secrets.ts` +
-  `src/vendor/kit-obsidian/secrets.ts` vendoriert). Sichtbare Folge: `SecretStore` bekommt
-  `delete(id)` (ein geloeschter Endpunkt nimmt sein Token mit) und `obsidianSecretStore(...).get()`
-  liefert bei einem leeren Secret jetzt `null` statt eines leeren Strings; der
-  Verfuegbarkeits-Check beim Start prueft ueber `secretStorageAvailable(app)` sowohl
-  `getSecret` als auch `setSecret` statt nur `getSecret`.
+- **`authorUrl` in the manifest points to the GitHub profile again** (`https://github.com/johannes-kaindl`),
+  after the return to the Community Store.
+- **Keychain access now comes from `obsidian-kit@0.37.1`** instead of a local copy
+  (`src/obsidian/secrets.ts` removed, `src/vendor/kit/secrets.ts` +
+  `src/vendor/kit-obsidian/secrets.ts` vendored). Visible consequences: `SecretStore` gains
+  `delete(id)` (a deleted endpoint takes its token with it), and `obsidianSecretStore(...).get()`
+  now returns `null` for an empty secret instead of an empty string; the availability check at
+  startup now uses `secretStorageAvailable(app)` to test both `getSecret` and `setSecret`
+  instead of only `getSecret`.
 - **Release notes before an update now cover the whole version delta, not just the latest
   release.** Updating from 0.3.1 to 0.5.0 used to show only 0.5.0's notes; it now shows 0.5.0,
   0.4.1 and 0.4.0, newest first, each under its own version heading — the same modal, just fed
