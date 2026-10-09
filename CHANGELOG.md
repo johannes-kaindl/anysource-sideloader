@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.3] — 2026-10-09
+
 ### Security
 
 - **Release notes no longer freeze the update window on crafted text.** The neutraliser that makes catalog release notes inert had a pathological slowdown on long runs of `![` (40,000 of them took 4 to 6 seconds); it now takes well under a second.
