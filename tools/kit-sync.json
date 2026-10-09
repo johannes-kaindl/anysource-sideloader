@@ -5,7 +5,7 @@
   },
   "targets": [
     { "dir": "src/vendor/code-kit", "source": "code-kit", "from": "src/ts/pure", "modules": ["settings", "settings_schema", "sha256", "i18n", "num"] },
-    { "dir": "src/vendor/code-kit", "source": "code-kit", "ref": "0.15.0", "from": "src/ts/pure", "modules": ["safe-markdown"] },
+    { "dir": "src/vendor/code-kit", "source": "code-kit", "ref": "0.15.4", "from": "src/ts/pure", "modules": ["safe-markdown"] },
     { "dir": "tests/vendor/kit", "source": "obsidian-kit", "from": "src/testing", "modules": ["obsidian-mock"] },
     { "dir": "src/vendor/kit", "source": "obsidian-kit", "from": "src/pure", "ref": "0.37.1", "modules": ["secrets"] },
     {

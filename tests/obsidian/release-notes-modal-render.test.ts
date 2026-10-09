@@ -34,4 +34,11 @@ describe("ReleaseNotesModal — fremder Text wird neutralisiert", () => {
     // Die eigene Struktur bleibt: Versions-Ueberschrift.
     expect(text).toMatch(/^## 1\.0\.0/);
   });
+
+  it("bleibt bei 40 000 x '![' schnell (ReDoS, code-kit 0.15.4)", () => {
+    const modal = new ReleaseNotesModal(new App(), "Notes", [{ version: "1.0.0", notes: "![".repeat(40_000) }]);
+    const t0 = Date.now();
+    modal.onOpen();
+    expect(Date.now() - t0).toBeLessThan(3000);
+  });
 });
