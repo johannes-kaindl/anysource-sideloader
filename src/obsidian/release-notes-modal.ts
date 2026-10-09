@@ -1,5 +1,6 @@
 import { App, Component, MarkdownRenderer, Modal } from "obsidian";
 import { STRINGS } from "../i18n/strings";
+import { neutralizeModelMarkdown } from "../vendor/code-kit/safe-markdown";
 
 export interface ReleaseNoteEntry {
   version: string;
@@ -39,7 +40,10 @@ export class ReleaseNotesModal extends Modal {
       this.contentEl.createEl("p", { cls: "asl-release-notes-empty", text: STRINGS.releaseNotes.empty });
       return;
     }
-    const markdown = buildReleaseNotesMarkdown(this.releases);
+    // Release-Notes sind fremder Text aus dem Katalog: ein ```dataviewjs-Block wuerde im Modal
+    // ausgefuehrt. `buildReleaseNotesMarkdown` fuegt selbst nur `##` und `---` ein, das Neutralisieren
+    // der ganzen Zeichenkette ist daher gefahrlos (Code-Spans und Fences fallen weg).
+    const markdown = neutralizeModelMarkdown(buildReleaseNotesMarkdown(this.releases));
     void MarkdownRenderer.render(this.app, markdown, this.contentEl, "", this.component);
   }
 

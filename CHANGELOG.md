@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **Release notes are shown as plain, inert Markdown.** The update-notes window renders text that comes from a catalog (someone else's text). Code blocks, inline code, embeds and images in release notes are now neutralised before rendering, so a note can no longer run a ``dataviewjs`` block or load an image in your vault. Code spans and fences in release notes show as plain text.
+
 ## [0.5.1] — 2026-10-03
 
 ### Added

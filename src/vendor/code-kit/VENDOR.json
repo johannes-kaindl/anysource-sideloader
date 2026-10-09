@@ -4,5 +4,5 @@
   "sha": "efcd456",
   "modules": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh.",
-  "vendored": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts"
+  "vendored": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts, safe-markdown.ts (code-kit@0.15.0, 561a184)"
 }
