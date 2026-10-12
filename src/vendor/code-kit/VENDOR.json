@@ -1,8 +1,8 @@
 {
   "source": "code-kit",
-  "version": "0.5.0",
-  "sha": "efcd456",
+  "version": "0.24.0",
+  "sha": "c3117a3",
   "modules": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh.",
-  "vendored": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts, safe-markdown.ts (code-kit@0.15.4, 6180b47)"
+  "vendored": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts, safe-markdown.ts"
 }

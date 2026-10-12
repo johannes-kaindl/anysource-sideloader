@@ -1,7 +1,7 @@
 {
-  "source": "obsidian-kit",
-  "version": "0.37.1",
-  "sha": "4cfa746",
+  "source": "code-kit",
+  "version": "0.24.0",
+  "sha": "c3117a3",
   "modules": "secrets.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh.",
   "vendored": "secrets.ts"
