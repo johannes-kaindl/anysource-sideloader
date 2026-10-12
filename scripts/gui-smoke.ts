@@ -2263,6 +2263,9 @@ async function main(): Promise<void> {
 
   for (const w of herkunftsWarnungen) console.log(w);
   bilanz.abschluss();
+  if (SEKTION_ARG) {
+    console.log(`Teillauf: Sektion ${SEKTION_ARG}, ${PUNKTE.length} von ${PUNKTE_ALLE.length} Punkten im Soll — kein Beleg für die übrigen.`);
+  }
 }
 
 runDriver(main);
