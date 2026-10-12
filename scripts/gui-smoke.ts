@@ -18,41 +18,35 @@
  * Abschnitt `L` fährt zusätzlich gegen die echte Forge und ist der einzige netzabhängige
  * Teil; ohne Netz meldet er `übersprungen`, nicht rot.
  *
- * ## Voraussetzung
+ * ## Voraussetzung: eine Zweitinstanz, nie die reguläre
  *
- * ⚠️ **Zuerst prüfen, wer sonst an Obsidian hängt.** Obsidian ist Single-Instance — ein
- * `quit` trifft die Instanz, an der möglicherweise eine andere Session arbeitet, und
- * zerstört deren Zustand. Der eigene Lauf ist danach sauber grün; der Schaden entsteht
- * woanders und fällt nicht auf.
- *
- * ```bash
- * lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null && echo "läuft bereits — NICHT beenden"
- * curl -s http://127.0.0.1:9222/json/list | python3 -c "import json,sys; [print(' ·', t.get('title')) for t in json.load(sys.stdin) if t.get('type')=='page']"
- * ```
- *
- * Die zweite Zeile beantwortet, wen ein Quit träfe — der CDP-Lock beantwortet das
- * **nicht** (er ist frei, solange niemand gerade misst, auch bei sechs offenen Vaults).
- * Vor dem Lauf trotzdem den Lock nehmen, er ist die Eintrittskarte:
+ * Der Treiber hat keinen Standardport. Die reguläre Instanz (9222) gehört den Sessions, die an ihr
+ * hängen; ein `quit` oder `Page.reload` dort zerstört deren Zustand. Gefahren wird gegen eine
+ * Zweitinstanz mit eigenem Profil und eigenem Port (Dach-AGENTS § Staging-Vaults):
  *
  * ```bash
+ * UD=/tmp/obs-test-anysource-sideloader; PORT=<freier Port>
+ * lsof -nP -iTCP:$PORT -sTCP:LISTEN; pgrep -f "user-data-dir=$UD"      # beides leer, sonst ausweichen
+ * npm run build && npm run smoke:gui -- --setup                        # Staging-Vault aus fixtures/vault/
+ * mkdir -p $UD && cp ~/Library/Application\ Support/obsidian/obsidian-*.asar $UD/
+ * # $UD/obsidian.json: den Vault unter $STAGING_VAULTS_DIR eintragen, "language":"en"
+ * /Applications/Obsidian.app/Contents/MacOS/Obsidian --user-data-dir=$UD --remote-debugging-port=$PORT &
  * python3 ~/.claude/hooks/obsidian-cdp-lock.py acquire --label anysource-sideloader \
- *   --intent "GUI-Smoke" --exclusive focus
+ *   --intent "GUI-Smoke" --exclusive focus --port $PORT --ttl 300
+ * npm run smoke:gui -- --port $PORT
+ * npm run smoke:gui -- --port $PORT --section transport --keep
+ * npm run smoke:gui -- --port $PORT --ohne-netz                        # Abschnitt L bewusst abwählen
+ * python3 ~/.claude/hooks/obsidian-cdp-lock.py release --port $PORT
  * ```
  *
- * Hört der Port schon und ist der Staging-Vault Obsidian bekannt, dann **mitnutzen statt
- * neu starten**: `open "obsidian://open?vault=anysource-sideloader"` öffnet ein zusätzliches
- * Fenster derselben Instanz, `--vault` wählt es aus.
+ * Vertrauensdialog und Restricted Mode des frischen Profils erledigt `bereiteInstanzVor`.
+ * `STAGING_VAULTS_DIR` muss gesetzt sein — der Ort steht in der Umgebung, nie hier im Code.
  *
- * ```bash
- * npm run build
- * npm run smoke:gui -- --setup      # baut den Staging-Vault aus fixtures/vault/
- * open "obsidian://open?vault=anysource-sideloader"
- * npm run smoke:gui -- --vault anysource-sideloader
- * npm run smoke:gui -- --section transport --keep
- * ```
+ * ## Bilanz
  *
- * `STAGING_VAULTS_DIR` muss gesetzt sein (Dach-`AGENTS.md` § Staging-Vaults) — der Ort
- * steht in der Umgebung, nie hier im Code.
+ * Vier Zustände nach CORE-TEST-19 (grün · rot · übersprungen · nichts gemessen), Nenner ist die
+ * Soll-Liste `PUNKTE_JE_SEKTION`. Exit 1 bei rot oder nichts gemessen, Exit 2 bei Abbruch.
+ * Abschnitt L braucht das Netz: ohne Netz ist er „nichts gemessen“, mit `--ohne-netz` bewusst übersprungen.
  *
  * ⚠️ Chromium drosselt das Rendering nicht-fokussierter Fenster: ohne Fokus bleibt der
  * DOM der Ansicht leer und man debuggt ein Phantom (CORE-TEST-02).
@@ -64,9 +58,11 @@ import { join } from "node:path";
 // Die CDP-Brücke liegt seit 2026-08-16 zentral im Dach (tools/obsidian-cdp/) und wird
 // importiert, nicht vendored. Fehlt das Dach (fremder Checkout), bricht esbuild beim
 // Auflösen ab — das ist die gewollte Meldung. Was ihr fehlt, wird DORT ergänzt.
+import { createBilanz, parseArgs, runDriver, Vorbedingung } from "../../tools/obsidian-cdp/bilanz.js";
 import {
   type Cdp,
   attachTo,
+  bereiteInstanzVor,
   clickReal,
   closeExtraLeaves,
   notices,
@@ -98,28 +94,90 @@ const targetDir = (configDir: string): string => `${configDir}/plugins/${TARGET_
 
 // --- Protokoll ---------------------------------------------------------------
 
-interface Result {
-  name: string;
-  passed: boolean;
-  detail: string;
-}
+/** Soll-Liste aller Prüfpunkte je Sektion — der Nenner der Bilanz (CORE-TEST-19). Ein Punkt, der nie
+ *  aufgezeichnet wird, zählt als „nichts gemessen“, nie als grün. */
+const PUNKTE_JE_SEKTION = {
+  sektionen: [
+    "A1 alle fuenf Sektionen sind gezeichnet",
+    "A2 keine selbstgebauten Ueberschriften (§5: setHeading statt <h3>)",
+    "A3 Updates ohne verwaltete Plugins sagt, dass nichts verfolgt wird",
+    "A4 Installed zeigt seinen Empty-State sichtbar",
+    "A5 Browse ohne Katalog nennt den Ausweg",
+  ],
+  katalog: [
+    "C1 Katalog geladen: beide Eintraege stehen als Zeilen im Tab",
+    "C2 ein nicht installierter Eintrag bietet „Install“",
+    "C3 HTTP-Quelle warnt vor unverschluesseltem Transport",
+    "C4 Install-Confirm nennt Quelle, id und Version",
+    "C5 „Cancel“ bricht wirklich ab — nichts geschrieben, nichts registriert",
+    "C6 Install schreibt die Dateien und meldet es",
+    "C7 Enable-Confirm erscheint, „Later“ aktiviert nichts",
+    "C8 Installed-Zeile zeigt Version, Host und Status is-ok",
+    "C9 „Check“ findet 1.1.0 — die Zeile bietet den Update-CTA statt eines Warn-Indikators",
+    "C13 der Zeilen-CTA oeffnet denselben Confirm — „Cancel“ schreibt nichts",
+    "C10 Updates-Sektion fuehrt das Plugin mit „alt → neu“",
+    "C11 Update-Confirm nennt „1.0.0 → 1.1.0“ und schreibt die neue Version",
+    "C12 Remove: destruktiv markiert, Code weg, data.json bleibt",
+  ],
+  adoption: [
+    "G1 installiertes, nicht verwaltetes Plugin wird als solches erkannt",
+    "G2 „Alle verwalten“ erscheint und nennt die Anzahl",
+    "G3 „Verwalten“ traegt es mit der Version VON DER PLATTE ein",
+    "G4 der Pruef-Knopf findet den Rueckstand des uebernommenen Plugins",
+    "G5 die Katalog-Zeile zeigt installiert + verfuegbar statt „Install“",
+  ],
+  url: [
+    "D1 Befehl „Install plugin from URL“ öffnet ein Modal mit Eingabefeld",
+    "D2 unbrauchbare Adresse meldet „no supported source“, ohne etwas zu schreiben",
+    "D3 fremder Plugin-Ordner: destruktives Overwrite-Confirm, das die id nennt",
+    "D4 Abbruch am Overwrite-Confirm lässt das fremde Plugin unangetastet",
+    "D5 falsche Prüfsumme bricht ab, bevor irgendetwas geschrieben wird",
+    "D6 Release ohne checksums.sha256 sagt das im Confirm",
+  ],
+  settings: [
+    "E1 alle drei Einstellungen sind gezeichnet",
+    "E10 die Hilfe-Zeile steht als erste Zeile im Tab, mit „Open documentation“ und Icon-Knopf",
+    "E2 „Catalogs“ ist bedienbar (Eingabefeld + „Add catalog URL“)",
+    "E3 „Access tokens“ ist bedienbar (Host-Feld + „Add host“)",
+    "E4 „Add catalog URL“ trägt den Katalog in die Einstellungen ein",
+    "E5 Token-Host normalisiert (nur host:port), Zeile ohne Klartext-Token",
+    "E7 der Klick auf „Check now“ friert die App nicht ein",
+    "E8 „Check now“ zeigt waehrend des Laufs einen bewegten is-checking-Indikator und raeumt ihn wieder ab",
+    "E6 Toggle „Check on startup“ landet in data.json, nicht nur im Speicher",
+    "E9 ein Neuzeichnen waehrend der Eingabe verwirft weder Wert noch Fokus noch Cursorposition",
+  ],
+  transport: [
+    "F1 requestUrl folgt dem 303 der Gitea/Forgejo-Raw-Form (Pflicht-Messpunkt)",
+    "F2 Cross-Host-Redirect ist für 303 UND 302 gemessen worden",
+  ],
+  live: [
+    "L1 Gitea-API der echten Forge antwortet in erwarteter Form",
+    "L2 Raw-Form der echten Forgejo-Instanz liefert über requestUrl den Katalog",
+  ],
+} as const;
 
-const results: Result[] = [];
+const PUNKT_REST = "Kein liegen gebliebener Smoke-Zielordner aus einem abgebrochenen frueheren Lauf" as const;
 
-function check(name: string, passed: boolean, detail = ""): void {
-  results.push({ name, passed, detail });
-  console.log(`${passed ? "  ✓" : "  ✗"} ${name}${detail ? ` — ${detail}` : ""}`);
-}
+/** Die Sektionen, die dieser Lauf fährt. Mit `--section` schrumpft der Nenner mit — sonst zählte jeder
+ *  nicht gefahrene Punkt als „nichts gemessen“. */
+const SEKTION_ARG = parseArgs(process.argv.slice(2)).value("section");
+const PUNKTE_ALLE = [
+  PUNKT_REST,
+  ...Object.values(PUNKTE_JE_SEKTION).flat(),
+] as const;
+const PUNKTE: typeof PUNKTE_ALLE = SEKTION_ARG
+  ? ([
+      PUNKT_REST, // läuft in jedem Lauf, vor den Sektionen
+      ...((PUNKTE_JE_SEKTION as Record<string, readonly string[]>)[SEKTION_ARG] ?? []),
+    ] as unknown as typeof PUNKTE_ALLE)
+  : PUNKTE_ALLE;
 
-/** Was der Lauf bewusst NICHT misst. Steht im Protokoll, damit eine Lücke nicht wie
- *  Abdeckung aussieht — ein stillschweigend ausgelassener Punkt liest sich hinterher
- *  wie ein grüner. */
-function skipped(name: string, reason: string): void {
-  console.log(`  – ${name} — übersprungen: ${reason}`);
-}
+const bilanz = createBilanz({ punkte: PUNKTE });
+const check = bilanz.record;
+const unmeasured = bilanz.unmeasured;
 
-/** Eine reine Messung ohne Soll-Wert (Abschnitt F). Sie kann nicht „rot“ sein: das
- *  Ergebnis IST das Ergebnis. Rot wird der zugehörige Prüfpunkt nur, wenn gar nichts
+/** Eine reine Messung ohne Soll-Wert (Abschnitt F). Sie ist kein Prüfpunkt und steht nicht im Nenner: das
+ *  Ergebnis IST das Ergebnis. Rot oder „nichts gemessen“ wird der zugehörige Prüfpunkt nur, wenn gar nichts
  *  messbar war — „Prüfpunkt kennt nur einen richtigen Ausgang“ (Skill-Falle). */
 function measured(name: string, value: string): void {
   console.log(`  ◆ ${name} — gemessen: ${value}`);
@@ -431,6 +489,8 @@ async function removeTargetPlugin(cdp: Cdp, configDir: string): Promise<void> {
 interface Verbindung {
   port: number;
   vault: string;
+  /** `--ohne-netz`: Abschnitt L bewusst abgewählt (dann „übersprungen“); ohne Flag und ohne Netz ist er „nichts gemessen“. */
+  ohneNetz: boolean;
 }
 
 /**
@@ -679,7 +739,7 @@ const SECTIONS: Section[] = [
         );
         return true;
       });
-      if (ergebnis === null) check("A0 Einstellungs-Tab erreichbar", false, "settingsStelle lieferte nichts");
+      if (ergebnis === null) unmeasured(PUNKTE_JE_SEKTION.sektionen[0], "Einstellungs-Tab nicht erreichbar (settingsStelle lieferte nichts)");
     },
   },
 
@@ -1186,7 +1246,7 @@ const SECTIONS: Section[] = [
 
       const tabId = await cdp.evaluate<string>(`return app.setting?.activeTab?.id ?? "(kein aktiver Tab)";`);
       if (tabId !== PLUGIN_ID) {
-        check("E1 Settings-Tab des Plugins ist aktiv", false, `activeTab: ${tabId}`);
+        unmeasured(PUNKTE_JE_SEKTION.settings[0], `Settings-Tab des Plugins ist nicht aktiv (activeTab: ${tabId})`);
         return;
       }
 
@@ -1195,10 +1255,9 @@ const SECTIONS: Section[] = [
       // Sache ableiten, welche vorliegt — nie über den (lokalisierten) Fenstertitel.
       const stelle = await settingsStelle(cdp, verbindung);
       if (!stelle) {
-        check(
-          "E1 Settings-DOM ist erreichbar",
-          false,
-          "weder ein .modal.mod-settings im Workspace-Fenster noch ein Einstellungen-Fenster auf dem Debug-Port",
+        unmeasured(
+          PUNKTE_JE_SEKTION.settings[0],
+          "Settings-DOM nicht erreichbar: weder ein .modal.mod-settings im Workspace-Fenster noch ein Einstellungen-Fenster auf dem Debug-Port",
         );
         return;
       }
@@ -1304,7 +1363,10 @@ const SECTIONS: Section[] = [
             `catalogs: ${JSON.stringify(nachAdd ?? [])}`,
           );
         } else {
-          skipped("E4 Katalog eintragen", "die Bedienung fehlt bereits (E2 rot) — der Ablauf hätte keinen Gegenstand");
+          unmeasured(
+            "E4 „Add catalog URL“ trägt den Katalog in die Einstellungen ein",
+            "die Bedienung fehlt bereits (E2 rot) — der Ablauf hätte keinen Gegenstand",
+          );
         }
 
         if (tokenBedienbar) {
@@ -1447,7 +1509,10 @@ const SECTIONS: Section[] = [
               (tabWert ? ` · im Tab: pendingHost=${JSON.stringify(tabWert.pendingHost)}` : ""),
           );
         } else {
-          skipped("E5 Token-Host + SecretComponent", "die Bedienung fehlt bereits (E3 rot) — der Ablauf hätte keinen Gegenstand");
+          unmeasured(
+            "E5 Token-Host normalisiert (nur host:port), Zeile ohne Klartext-Token",
+            "die Bedienung fehlt bereits (E3 rot) — der Ablauf hätte keinen Gegenstand",
+          );
         }
 
         // Der Toggle läuft über den deklarativen Pfad und ist damit die Gegenprobe zu
@@ -1887,11 +1952,15 @@ const SECTIONS: Section[] = [
 
   {
     key: "live",
-    title: "L — echte Forge (netzabhängig, darf fehlen)",
-    run: async (cdp) => {
+    title: "L — echte Forge (netzabhängig; mit --ohne-netz abgewählt)",
+    run: async (cdp, _forge, _cfg, verbindung) => {
+      if (verbindung.ohneNetz) {
+        for (const punkt of PUNKTE_JE_SEKTION.live) bilanz.skipped(punkt, "mit --ohne-netz abgewählt");
+        return;
+      }
       // Der einzige Abschnitt, der das Netz braucht. Er ist die Gegenprobe zur lokalen
       // Forge: dass die Annahmen über die Gitea-Raw-Form und die API-Antwortform nicht
-      // nur für den eigenen Server gelten. Kein Netz = übersprungen, nicht rot.
+      // nur für den eigenen Server gelten. Kein Netz ohne --ohne-netz = nichts gemessen (Exit 1), nicht rot und nicht still übersprungen.
       const erreichbar = await cdp.evaluate<{ ok: boolean; status: number; detail: string }>(`
         try {
           const r = await requestUrl({ url: "https://git.jkaindl.de/api/v1/version", throw: false });
@@ -1901,7 +1970,8 @@ const SECTIONS: Section[] = [
         }
       `);
       if (!erreichbar.ok) {
-        skipped("L1–L2 echte Forge", `git.jkaindl.de nicht erreichbar (${erreichbar.status}: ${erreichbar.detail})`);
+        const grund = `git.jkaindl.de nicht erreichbar (${erreichbar.status}: ${erreichbar.detail})`;
+        for (const punkt of PUNKTE_JE_SEKTION.live) unmeasured(punkt, grund);
         return;
       }
       check(
@@ -1956,20 +2026,24 @@ function setupVault(): void {
 // --- Lauf --------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
-  const flag = (name: string): string | undefined => {
-    const index = argv.indexOf(`--${name}`);
-    return index === -1 ? undefined : argv[index + 1];
-  };
-  if (argv.includes("--setup")) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.has("setup")) {
     setupVault();
     return;
   }
 
-  const port = Number(flag("port") ?? 9222);
-  const vault = flag("vault") ?? REPO_NAME;
-  const keep = argv.includes("--keep");
-  const sectionArg = flag("section");
+  const portArg = args.value("port");
+  if (!portArg) {
+    throw new Error(
+      "--port fehlt. Der Treiber hat keinen Standardport: 9222 ist die reguläre Instanz, an der andere Sessions hängen. " +
+        "Zweitinstanz mit eigenem Profil und Port starten (Kopf dieser Datei).",
+    );
+  }
+  const port = Number(portArg);
+  const vault = args.value("vault") ?? REPO_NAME;
+  const keep = args.has("keep");
+  const ohneNetz = args.has("ohne-netz");
+  const sectionArg = args.value("section");
 
   const sections = sectionArg ? SECTIONS.filter((s) => s.key === sectionArg) : SECTIONS;
   if (sections.length === 0) {
@@ -1987,8 +2061,8 @@ async function main(): Promise<void> {
     await forge.stop();
     throw new Error(
       `Kein Obsidian-Workspace-Fenster auf Port ${port} für Vault „${vault}“. ` +
-        `Läuft Obsidian mit --remote-debugging-port=${port} und ist der Vault offen ` +
-        `(open "obsidian://open?vault=${vault}")?`,
+        `Läuft die Zweitinstanz mit --remote-debugging-port=${port} und ist der Vault in ihrer obsidian.json eingetragen ` +
+        "(Rezept im Kopf dieser Datei)?",
     );
   }
 
@@ -2115,6 +2189,10 @@ async function main(): Promise<void> {
     // die Dateien; die laufende Instanz behält den alten Code im Speicher — ohne diesen
     // Schritt meldet der Smoke den zuletzt geladenen Stand als Ergebnis für den gerade
     // gebauten.
+    // Frisches Profil: Vertrauensdialog bestätigen, Restricted Mode aufheben, Plugin laden — erst danach
+    // gibt es überhaupt etwas neu zu laden.
+    const vorbereitet = await bereiteInstanzVor(cdp, { pluginIds: [PLUGIN_ID], nurVault: REPO_NAME, sprache: "en" });
+    console.log(`Instanz: ${vorbereitet.hinweis}`);
     const plugin = await cdp.evaluate<{ ok: boolean; version?: string }>(`
       const id = ${JSON.stringify(PLUGIN_ID)};
       if (app.plugins.plugins[id]) {
@@ -2126,7 +2204,12 @@ async function main(): Promise<void> {
       const p = app.plugins.plugins[id];
       return p ? { ok: true, version: p.manifest.version } : { ok: false };
     `);
-    if (!plugin.ok) throw new Error(`Plugin ${PLUGIN_ID} ist nicht aktiv. Erst \`npm run deploy\` in den Staging-Vault.`);
+    if (!plugin.ok) {
+      throw new Error(
+        `Plugin ${PLUGIN_ID} ist nicht aktiv (${vorbereitet.hinweis}). ` +
+          "Fehlt es im Vault: `npm run build && npm run smoke:gui -- --setup`.",
+      );
+    }
     // Die Version aus der DEPLOYTEN Datei, nicht aus `plugin.manifest`: Obsidian liest die
     // Manifeste beim Start und behält sie im Speicher — ein Deploy danach aktualisiert den
     // geladenen Code, aber nicht diese Angabe (json_viewer-Befund 2026-08-22).
@@ -2163,7 +2246,7 @@ async function main(): Promise<void> {
 
     for (const section of sections) {
       console.log(`── ${section.title}`);
-      await section.run(cdp, forge, configDir, { port, vault });
+      await section.run(cdp, forge, configDir, { port, vault, ohneNetz });
       console.log("");
     }
   } finally {
@@ -2178,17 +2261,8 @@ async function main(): Promise<void> {
     await forge.stop();
   }
 
-  const failed = results.filter((r) => !r.passed);
-  console.log(`${results.length - failed.length}/${results.length} gruen`);
   for (const w of herkunftsWarnungen) console.log(w);
-  if (failed.length > 0) {
-    console.log("Rot:");
-    for (const r of failed) console.log(`  - ${r.name}: ${r.detail}`);
-    process.exitCode = 1;
-  }
+  bilanz.abschluss();
 }
 
-main().catch((error: unknown) => {
-  console.error(`\nAbbruch: ${error instanceof Error ? error.message : String(error)}`);
-  process.exitCode = 1;
-});
+runDriver(main);

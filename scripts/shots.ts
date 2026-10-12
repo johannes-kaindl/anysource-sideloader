@@ -298,7 +298,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const port = Number(flag("--port") ?? env.SHOTS_PORT ?? 9222);
+  const portArg = flag("--port") ?? env.SHOTS_PORT;
+  if (!portArg) throw new Error("--port fehlt (kein Standardport: 9222 ist die reguläre Instanz). Rezept im Kopf dieser Datei.");
+  const port = Number(portArg);
   const nur = flag("--only");
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
