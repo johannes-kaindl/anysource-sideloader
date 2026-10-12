@@ -25,6 +25,14 @@ keine Plugin-Inhalte** (kein Code-Review, kein Ranking, kein Store-Ersatz) und b
 Kit-Module kommen ausschließlich über `tools/sync-kit.sh`, nie von Hand kopiert oder
 editiert.
 
+## Release-Notes: fremder Text im Modal
+
+Das Modal `ReleaseNotesModal` rendert Release-Notes aus dem Katalog, also fremden Text, mit `MarkdownRenderer.render`. Davor läuft ausschließlich `neutralizeModelMarkdown` (code-kit `safe-markdown`): Es entfernt Code-Elemente, macht `<` zu `&lt;` und Bilder zu Text.
+
+Ein zweiter DOM-Durchgang (`neutralizeRemoteResourcesInTree`, code-kit `web/remote-resources`) ist hier nicht nötig und nicht eingebaut. Gemessen am 2026-10-12 in einer Zweitinstanz (Obsidian 1.14.4) gegen einen lokalen HTTP-Server, der jeden Abruf zählt: Der neutralisierte Text lädt in sieben Schreibweisen (Markdown-Bild, `<img>`, Referenz-Definition, Referenz über Zeilenumbruch, `style="…url(…)"`, `<picture><source srcset>`, `//`-Adresse) null Fernbilder, der rohe Text lädt in fünf davon (Gegenprobe, die Messung kann also finden). Dieselben Eingaben ergeben in `neutralizeModelMarkdown` vor und nach der Hebung auf code-kit 0.24.0 bytegleiche Ausgaben, das Plugin ruft `neutralizeRemoteResources` (die Funktion mit den Fernbild-Fixes 0.20.0) nicht auf.
+
+Die Linearitätsprobe `tests/obsidian/release-notes-modal-render.test.ts` misst mit `pruefeLinear` den Quotienten statt einer absoluten Zeitgrenze, weil eine feste Grenze unter Last kippt (7 s bei Load 320). Ändert sich die Ausgabe der Neutralisierung oder ruft ein Aufrufer `neutralizeRemoteResources` auf, gehört die Messung wiederholt.
+
 ## UI-Abweichungen
 
 Deklarationspflicht nach `../UI-STANDARD.md` §1a: abweichen ist erlaubt, stillschweigend

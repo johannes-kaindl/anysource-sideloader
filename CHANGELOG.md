@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Internal only, nothing you will notice: the shared building blocks the plugin copies from the kit are updated (obsidian-kit 0.56.2, code-kit 0.24.0). The release-notes window shows the same text as before: the safety pass over catalog release notes (images become text, code blocks and HTML are shown as plain text) gives byte-identical output for the tested inputs, and in a live Obsidian none of them loaded a remote image. The newer image and CSS hardening in the kit (0.20.0) belongs to a second pass this plugin does not use.
+
 ## [0.5.3] — 2026-10-09
 
 ### Security

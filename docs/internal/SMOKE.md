@@ -6,33 +6,29 @@ dieses Dokument sagt, was hier tatsächlich am echten Wirt gemessen wird und was
 
 ## Wie er läuft
 
+Der Treiber läuft gegen eine **Zweitinstanz** mit eigenem Profil und eigenem Port, nie gegen die reguläre Instanz (9222): Ein Quit oder Reload dort trifft fremde Sessions. Er hat keinen Standardport, ohne `--port` bricht er mit Exit 2 ab.
+
 ```bash
+UD=/tmp/obs-test-anysource-sideloader; PORT=<freier Port>
+lsof -nP -iTCP:$PORT -sTCP:LISTEN; pgrep -f "user-data-dir=$UD"      # beides leer, sonst ausweichen
+npm run build && npm run smoke:gui -- --setup                        # Staging-Vault aus fixtures/vault/
+mkdir -p $UD && cp ~/Library/Application\ Support/obsidian/obsidian-*.asar $UD/
+# $UD/obsidian.json: den Vault unter $STAGING_VAULTS_DIR eintragen, "language":"en"
+/Applications/Obsidian.app/Contents/MacOS/Obsidian --user-data-dir=$UD --remote-debugging-port=$PORT &
+
 python3 ~/.claude/hooks/obsidian-cdp-lock.py acquire --label anysource-sideloader \
-  --intent "GUI-Smoke" --exclusive focus
-
-npm run build
-npm run smoke:gui -- --setup                      # Staging-Vault aus fixtures/vault/
-open "obsidian://open?vault=anysource-sideloader"  # Vault als Fenster derselben Instanz
-npm run smoke:gui -- --vault anysource-sideloader
-
-python3 ~/.claude/hooks/obsidian-cdp-lock.py release
+  --intent "GUI-Smoke" --exclusive focus --port $PORT --ttl 300
+npm run smoke:gui -- --port $PORT
+python3 ~/.claude/hooks/obsidian-cdp-lock.py release --port $PORT
 ```
 
-`STAGING_VAULTS_DIR` muss gesetzt sein (Dach-`AGENTS.md` § Staging-Vaults). Der Smoke
-bricht ab, wenn er in einem anderen Vault landet als seinem Staging-Vault: gegen einen
-Arbeitsvault gemessen wäre das Ergebnis unbelegt (dort liegt der Store-Build statt des
-Repo-Stands).
+Vertrauensdialog und Restricted Mode des frischen Profils bestätigt der Treiber selbst (`bereiteInstanzVor`). Der erste Lauf nach der Profilanlage ist ein Aufwärmlauf und zählt nicht; je Messlauf startet ein frischer Prozess.
 
-Weitere Schalter: `--port` (Default 9222), `--section <key>`, `--keep` (Testartefakte
-stehen lassen).
+`STAGING_VAULTS_DIR` muss gesetzt sein (Dach-`AGENTS.md` § Staging-Vaults). Der Smoke bricht ab, wenn er in einem anderen Vault landet als seinem Staging-Vault: gegen einen Arbeitsvault gemessen wäre das Ergebnis unbelegt (dort liegt der Store-Build statt des Repo-Stands).
 
-⚠️ **Vor dem Lauf prüfen, wer sonst an Obsidian hängt** — Obsidian ist Single-Instance,
-ein Quit trifft fremde Sessions. Der Lock beantwortet diese Frage *nicht* (er ist frei,
-solange niemand misst, auch bei offenen fremden Vaults):
+Weitere Schalter: `--section <key>` (Teillauf: die Soll-Liste schrumpft auf die Sektion, der Abschluss nennt den Teillauf), `--keep` (Testartefakte stehen lassen), `--ohne-netz` (Abschnitt `L` bewusst abwählen).
 
-```bash
-curl -s http://127.0.0.1:9222/json/list | python3 -c "import json,sys; [print(' ·', t.get('title')) for t in json.load(sys.stdin) if t.get('type')=='page']"
-```
+Die Bilanz hat vier Zustände (CORE-TEST-19): grün, rot, übersprungen, nichts gemessen. Nenner ist die Soll-Liste `PUNKTE_JE_SEKTION` im Treiber (44 Punkte). Exit 1 bei rot oder nichts gemessen, Exit 2 bei Abbruch.
 
 ## Die Gegenstelle ist lokal — und warum
 
@@ -47,7 +43,7 @@ herstellen, die an einer echten Forge nicht herstellbar sind:
 
 Beides sind die Pflicht-Messpunkte aus dem Final-Review vom 2026-09-01. Abschnitt `L`
 fährt zusätzlich gegen die echte Forge und ist der einzige netzabhängige Teil; ohne Netz
-meldet er `übersprungen`, nicht rot.
+meldet er „nichts gemessen“ (Exit 1), mit `--ohne-netz` ist er bewusst übersprungen.
 
 Der installierte Prüfling heißt `asl-smoke-target` — eine id, die kein echtes Plugin
 trägt. Was der Smoke installiert, landet als echter Ordner unter `.obsidian/plugins/`,
@@ -175,7 +171,7 @@ Plugin still überschreiben konnte.
 | E9 | Ein Neuzeichnen während der Eingabe verwirft weder **Wert** noch **Fokus** noch **Cursorposition** |
 
 E2/E3 messen die **Bedienung**, nicht den Namen: ein Item mit Beschriftung und ohne Knopf
-sieht auf einem Screenshot vollständig aus und ist es nicht. E4/E5 werden übersprungen,
+sieht auf einem Screenshot vollständig aus und ist es nicht. E4/E5 werden „nichts gemessen“ (früher: übersprungen),
 wenn E2/E3 rot sind — ein Ablauf ohne Gegenstand wäre kein Prüfergebnis.
 
 ⚠️ **Ab Obsidian 1.13 sind die Einstellungen ein eigenes Fenster.** `app.setting.activeTab.id`
@@ -300,7 +296,7 @@ Weiterreichen ist also eine Eigenschaft von `requestUrl`, nicht des Testaufbaus.
 | L2 | Die Raw-Form der echten Forgejo-Instanz liefert über `requestUrl` den Katalog |
 
 Die Gegenprobe zur lokalen Forge: dass deren Annahmen nicht nur für den eigenen Server
-gelten. Ohne Netz `übersprungen`.
+gelten. Ohne Netz „nichts gemessen“, mit `--ohne-netz` `übersprungen`.
 
 ## Was der Smoke bewusst NICHT misst
 
