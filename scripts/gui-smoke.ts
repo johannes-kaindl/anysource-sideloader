@@ -52,7 +52,6 @@
  * DOM der Ansicht leer und man debuggt ein Phantom (CORE-TEST-02).
  */
 
-import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 // Die CDP-Brücke liegt seit 2026-08-16 zentral im Dach (tools/obsidian-cdp/) und wird
@@ -2134,17 +2133,9 @@ async function main(): Promise<void> {
   try {
     await cdp.mitschnitt((zeile) => { console.log(`  [renderer] ${zeile}`); });
 
-    // Ohne Fokus drosselt Chromium den Renderer: der DOM bleibt leer, während die App-API
-    // den Zustand korrekt meldet — man debuggt ein Phantom. `Page.bringToFront` allein
-    // genügt auf macOS nicht.
-    if (process.platform === "darwin") {
-      try {
-        execFileSync("osascript", ["-e", 'tell application "Obsidian" to activate']);
-        await new Promise((r) => setTimeout(r, 1500));
-      } catch {
-        console.log("  (Hinweis: `osascript activate` schlug fehl — Fenster ggf. von Hand nach vorn holen)");
-      }
-    }
+    // Ohne Fokus drosselt Chromium den Renderer: der DOM bleibt leer, während die App-API den Zustand
+    // korrekt meldet. `requireVisible` holt das Fenster dieser Instanz nach vorn — ein `osascript activate`
+    // träfe stattdessen die reguläre Obsidian-Instanz (gemessen von kl-w19, 2026-10-12).
     await requireVisible(cdp);
     await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true }).catch(() => undefined);
 
