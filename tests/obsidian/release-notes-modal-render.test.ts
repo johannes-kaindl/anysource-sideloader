@@ -15,6 +15,7 @@ vi.mock("obsidian", async (orig) => {
 
 import { App } from "obsidian";
 import { ReleaseNotesModal } from "../../src/obsidian/release-notes-modal";
+import { pruefeLinear } from "../vendor/kit/linear-probe";
 
 // Release-Notes kommen aus dem Katalog, also von Fremden. Ein ```dataviewjs-Fence im Text
 // wuerde von Dataview im Modal AUSGEFUEHRT; deshalb geht der Text neutralisiert zum Renderer.
@@ -35,10 +36,13 @@ describe("ReleaseNotesModal — fremder Text wird neutralisiert", () => {
     expect(text).toMatch(/^## 1\.0\.0/);
   });
 
-  it("bleibt bei 40 000 x '![' schnell (ReDoS, code-kit 0.15.4)", () => {
-    const modal = new ReleaseNotesModal(new App(), "Notes", [{ version: "1.0.0", notes: "![".repeat(40_000) }]);
-    const t0 = Date.now();
-    modal.onOpen();
-    expect(Date.now() - t0).toBeLessThan(3000);
+  it("bleibt bei wachsendem '![' linear (ReDoS)", () => {
+    // Messung statt absoluter Zeitgrenze: eine feste Grenze kippt unter Last (7 s bei Load ~320), der Quotient nicht.
+    // Eingabe: "![" läuft den teuren Pfad an, ohne dass ein Bild zustande kommt (CORE-TEST-26 a).
+    const r = pruefeLinear(
+      (notes: string) => new ReleaseNotesModal(new App(), "Notes", [{ version: "1.0.0", notes }]).onOpen(),
+      (n) => "![".repeat(n),
+    );
+    expect(r.linear, r.message).toBe(true);
   });
 });
