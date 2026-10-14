@@ -34,6 +34,19 @@ account that has been taken over, can publish a tampered release together with m
 and verification passes. Defending against that needs signatures and a key you have
 independently, which this plugin does not implement.
 
+## What the pin catches
+
+After every install or update the plugin remembers the version and a hash of the `main.js` it
+wrote (in `data.json`, next to the plugin's entry). When the same version number later comes
+back with different bytes — a release that was rebuilt or replaced — the install dialog stops with
+its own warning. That is the one case a checksum file cannot show you: the checksums of a replaced
+release match the replacement.
+
+It only compares when it has something to compare. A plugin you adopted without installing it
+through the sideloader has no pin yet, a newer version has nothing to be compared with, and the
+update *check* downloads no files. The pin is a tripwire for reinstalling a version you already
+have, not a signature.
+
 ## What the id guard does
 
 An install is bound to the plugin id it was made with. If a later release carries a different

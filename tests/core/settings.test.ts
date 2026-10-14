@@ -25,6 +25,15 @@ describe("loadSettings", () => {
     expect(s.checkOnStartup).toBe(true);
   });
 
+  it("behaelt einen gueltigen Pin und verwirft nur den Pin, wenn er kaputt ist (das Plugin bleibt)", () => {
+    const ok = { id: "demo", repoUrl: "u", ref: { kind: "gitea", baseUrl: "https://x", owner: "o", repo: "r" }, installedVersion: "1.0.0", availableVersion: null, addedFrom: "url" };
+    const pin = { version: "1.0.0", mainSha256: "a".repeat(64) };
+    const s = loadSettings({ plugins: [{ ...ok, pin }, { ...ok, id: "kaputt", pin: { version: 1, mainSha256: "zz" } }, { ...ok, id: "ohne" }] });
+    expect(s.plugins.map((p) => p.id)).toEqual(["demo", "kaputt", "ohne"]);
+    expect(s.plugins[0]?.pin).toEqual(pin);
+    expect(s.plugins[1]).not.toHaveProperty("pin");
+    expect(s.plugins[2]).not.toHaveProperty("pin");
+  });
   it("behaelt hostSecrets nur als String-zu-String-Paare", () => {
     const s = loadSettings({
       hostSecrets: { "git.jkaindl.de": "secret-id", bad: 42, other: null },

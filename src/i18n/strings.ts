@@ -69,6 +69,8 @@ export const STRINGS = {
     sourceLine: (url: string) => `Source: ${url}`,
     idLine: (id: string) => `ID: ${id}`,
     versionLine: (v: string) => `Version: ${v}`,
+    releaseChangedTitle: (id: string, version: string) => `${id} ${version} has changed since you installed it`,
+    releaseChangedMessage: "The source now serves different files under the same version number than the ones installed here. Either the release was rebuilt, or it was replaced. Only continue if you expect that.",
     removeCatalogTitle: "Remove this catalog?",
     removeCatalogMessage: (url: string) => `${url}\nThe plugins of this catalog no longer appear under "Browse catalogs". Plugins you already installed stay installed.`,
     removeHostTitle: (host: string) => `Remove the token entry for "${host}"?`,

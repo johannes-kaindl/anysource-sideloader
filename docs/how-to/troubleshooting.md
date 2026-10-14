@@ -52,6 +52,12 @@
 
 **Fix:** decide whether you trust the source. If you do, confirm; if not, cancel. What checksums prove and what they do not is in [the security model](../explanation/security-model.md).
 
+### The confirmation dialog warns that a plugin "has changed since you installed it"
+
+**Cause:** the source serves different files under the version number you already have installed. The release was rebuilt or replaced after you installed it.
+
+**Fix:** only continue if you expect that, for example because the maintainer says they re-released it. If not, cancel and ask the maintainer. See [the security model](../explanation/security-model.md#what-the-pin-catches).
+
 ### The confirmation dialog warns "This source uses plain HTTP; the download is not encrypted in transit."
 
 **Cause:** the source address starts with `http://`.

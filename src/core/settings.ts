@@ -9,6 +9,17 @@ export interface ManagedPlugin {
   installedVersion: string;
   availableVersion: string | null; // letzter Check-Befund, null = unbekannt/aktuell
   addedFrom: "url" | "catalog";
+  /** Was beim letzten Installieren oder Aktualisieren geschrieben wurde: Version und SHA-256 der `main.js`.
+   *  Kommt dieselbe Version später mit anderen Bytes wieder, wurde das Release ausgetauscht (Pinning). */
+  pin?: ReleasePin;
+}
+
+export interface ReleasePin { version: string; mainSha256: string }
+
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+
+export function isReleasePin(v: unknown): v is ReleasePin {
+  return isPlainObject(v) && typeof v.version === "string" && typeof v.mainSha256 === "string" && SHA256_HEX_RE.test(v.mainSha256);
 }
 
 export interface SideloaderSettings {
@@ -61,8 +72,9 @@ function isManagedPlugin(v: unknown): v is ManagedPlugin {
 export function loadSettings(raw: unknown): SideloaderSettings {
   const merged = mergeSettings(DEFAULT_SETTINGS, raw);
 
+  // Ein kaputter Pin verwirft nur den Pin, nicht das Plugin: ohne Pin greift die Prüfung "Release ausgetauscht" einfach nicht.
   const plugins = Array.isArray(merged.plugins)
-    ? merged.plugins.filter(isManagedPlugin)
+    ? merged.plugins.filter(isManagedPlugin).map(({ pin, ...rest }) => (isReleasePin(pin) ? { ...rest, pin } : rest))
     : DEFAULT_SETTINGS.plugins.slice();
 
   const checkOnStartup = typeof merged.checkOnStartup === "boolean" ? merged.checkOnStartup : true;

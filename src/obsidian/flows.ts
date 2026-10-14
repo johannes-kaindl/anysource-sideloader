@@ -6,9 +6,10 @@ import { confirmAction } from "../vendor/kit-obsidian/confirm";
 import { detectForge, fetchLatestRelease, fetchPluginFiles, fetchReleasesSince, type FetchedPlugin } from "../core/source";
 import { pluginDir } from "../core/install";
 import type { HttpPort, ReleaseInfo, RepoRef } from "../core/forge/types";
-import type { ManagedPlugin, SideloaderSettings } from "../core/settings";
+import type { ManagedPlugin, ReleasePin, SideloaderSettings } from "../core/settings";
 import { fasseFehlerZusammen, planUpdates, type UpdateCheckResult } from "../core/plan";
 import { isNewer } from "../core/version";
+import { sha256Hex } from "../vendor/code-kit/sha256";
 import { STRINGS } from "../i18n/strings";
 import type { SecretStore } from "../vendor/kit/secrets";
 import { resolveHostToken } from "./tokens";
@@ -42,6 +43,26 @@ function excerpt(notes: string, maxLen = 240): string {
   const trimmed = notes.trim();
   if (trimmed === "") return "";
   return trimmed.length > maxLen ? `${trimmed.slice(0, maxLen)}…` : trimmed;
+}
+
+/** Pin der gerade geladenen Dateien: Version und SHA-256 der `main.js`. */
+function pinOf(fetched: FetchedPlugin): ReleasePin | undefined {
+  const main = fetched.files.find((f) => f.name === "main.js");
+  return main ? { version: fetched.manifest.version, mainSha256: sha256Hex(new Uint8Array(main.data)) } : undefined;
+}
+
+/** Ein Release, das unter derselben Version andere `main.js`-Bytes liefert als beim letzten Installieren, verlangt eine eigene
+ *  Bestätigung. Ohne Pin (alte Einträge, übernommene Plugins) oder bei anderer Version gibt es nichts zu vergleichen. */
+async function confirmReleaseUnchanged(ctx: FlowContext, known: ManagedPlugin | undefined, fetched: FetchedPlugin): Promise<boolean> {
+  const now = pinOf(fetched);
+  if (!known?.pin || !now || known.pin.version !== now.version || known.pin.mainSha256 === now.mainSha256) return true;
+  return confirmAction(ctx.app, {
+    title: STRINGS.confirm.releaseChangedTitle(fetched.manifest.id, now.version),
+    message: [STRINGS.confirm.releaseChangedMessage],
+    confirmLabel: STRINGS.confirm.install,
+    cancelLabel: STRINGS.confirm.cancel,
+    warning: true,
+  });
 }
 
 function upsertManagedPlugin(settings: SideloaderSettings, plugin: ManagedPlugin): void {
@@ -140,6 +161,8 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
     if (!proceedOverwrite) return;
   }
 
+  if (!(await confirmReleaseUnchanged(ctx, ctx.settings.plugins.find((p) => p.id === fetched.manifest.id), fetched))) return;
+
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.installTitle(fetched.manifest.name),
     confirmLabel: STRINGS.confirm.install,
@@ -160,6 +183,7 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
     installedVersion: fetched.manifest.version,
     availableVersion: null,
     addedFrom: "url",
+    ...(pinOf(fetched) ? { pin: pinOf(fetched) } : {}),
   });
   await ctx.saveSettings();
 
@@ -262,6 +286,8 @@ export async function applyUpdate(ctx: FlowContext, id: string): Promise<void> {
     return;
   }
 
+  if (!(await confirmReleaseUnchanged(ctx, plugin, fetched))) return;
+
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.updateTitle(fetched.manifest.name, plugin.installedVersion, fetched.manifest.version),
     confirmLabel: STRINGS.confirm.update,
@@ -278,6 +304,8 @@ export async function applyUpdate(ctx: FlowContext, id: string): Promise<void> {
 
   plugin.installedVersion = fetched.manifest.version;
   plugin.availableVersion = null;
+  const pin = pinOf(fetched);
+  if (pin) plugin.pin = pin; else delete plugin.pin;
   await ctx.saveSettings();
 
   new Notice(STRINGS.notices.updated(fetched.manifest.name, fetched.manifest.version));

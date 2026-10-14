@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - **Errors while installing or updating are shown.** A failed download, a refused checksum or an unreachable source used to end silently after a click on Install or Update; now a notice names the cause ("The action failed: …"). Messages that come from the source itself are still in the language of the original text.
 
+### Added
+
+- **Pinning:** after every install or update the plugin remembers the version and a hash of `main.js` in `data.json`. If the same version comes back later with different files (a rebuilt or replaced release), the install dialog stops with a warning of its own. Plugins you only adopted have no pin yet.
+
 ### Changed
 
 - **Catalog rows:** the status text ("Installed 0.3.0 — not tracked") no longer breaks into two lines with its warning symbol set apart; a long description wraps instead.
