@@ -4,5 +4,5 @@
   "sha": "c3117a3",
   "modules": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh.",
-  "vendored": "settings.ts, settings_schema.ts, sha256.ts, i18n.ts, num.ts, safe-markdown.ts"
+  "vendored": "settings.ts, sha256.ts, i18n.ts, safe-markdown.ts"
 }

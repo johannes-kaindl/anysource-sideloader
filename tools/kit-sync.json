@@ -1,16 +1,58 @@
 {
   "sources": {
-    "obsidian-kit": { "ref": "0.56.2" },
-    "code-kit": { "ref": "0.24.0" }
+    "obsidian-kit": {
+      "ref": "0.56.2"
+    },
+    "code-kit": {
+      "ref": "0.24.0"
+    }
   },
   "targets": [
-    { "dir": "src/vendor/code-kit", "source": "code-kit", "from": "src/ts/pure", "modules": ["settings", "settings_schema", "sha256", "i18n", "num", "safe-markdown"] },
-    { "dir": "tests/vendor/kit", "source": "obsidian-kit", "from": "src/testing", "modules": ["obsidian-mock", "linear-probe"] },
-    { "dir": "src/vendor/kit", "source": "code-kit", "from": "src/ts/pure", "modules": ["secrets"] },
     {
-      "dir": "src/vendor/kit-obsidian", "source": "obsidian-kit", "from": "src/obsidian",
-      "modules": ["confirm", "hub", "settings_walker", "folder-suggest", "secrets", "help-setting"],
-      "rewrite": [["../vendor/code-kit/pure/", "../kit/"]]
+      "dir": "src/vendor/code-kit",
+      "source": "code-kit",
+      "from": "src/ts/pure",
+      "modules": [
+        "settings",
+        "sha256",
+        "i18n",
+        "safe-markdown"
+      ]
+    },
+    {
+      "dir": "tests/vendor/kit",
+      "source": "obsidian-kit",
+      "from": "src/testing",
+      "modules": [
+        "obsidian-mock",
+        "linear-probe"
+      ]
+    },
+    {
+      "dir": "src/vendor/kit",
+      "source": "code-kit",
+      "from": "src/ts/pure",
+      "modules": [
+        "secrets"
+      ]
+    },
+    {
+      "dir": "src/vendor/kit-obsidian",
+      "source": "obsidian-kit",
+      "from": "src/obsidian",
+      "modules": [
+        "confirm",
+        "settings_walker",
+        "folder-suggest",
+        "secrets",
+        "help-setting"
+      ],
+      "rewrite": [
+        [
+          "../vendor/code-kit/pure/",
+          "../kit/"
+        ]
+      ]
     }
   ]
 }
