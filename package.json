@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
     "typecheck:scripts": "if ls scripts/*.ts >/dev/null 2>&1 && test -d ../tools/obsidian-cdp; then tsc -p tsconfig.scripts.json --noEmit; else echo 'typecheck:scripts uebersprungen: kein scripts/*.ts oder ../tools/obsidian-cdp fehlt (maintainer-lokal)'; fi",
-    "test": "vitest run --passWithNoTests --exclude tests/integration/**",
+    "test": "node scripts/check-no-abs-paths.mjs && vitest run --passWithNoTests --exclude tests/integration/**",
     "test:integration": "vitest run tests/integration --testTimeout 60000",
     "lint": "node scripts/check-no-inline-disables.mjs && eslint src --max-warnings 0",
     "check:pure": "node scripts/check-pure.mjs && node scripts/check-no-nul-bytes.mjs",
