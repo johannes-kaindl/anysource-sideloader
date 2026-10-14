@@ -21,6 +21,7 @@ All notable changes to this project are documented here. The format follows
 - The confirmation text of an install ("Source", "ID", "Version") and the summary line of failed update checks come from the interface texts instead of being written in place.
 
 - Internal only, nothing you will notice: the shared building blocks the plugin copies from the kit are updated (obsidian-kit 0.56.2, code-kit 0.24.0). The release-notes window shows the same text as before: the safety pass over catalog release notes (images become text, code blocks and HTML are shown as plain text) gives byte-identical output for the tested inputs, and in a live Obsidian none of them loaded a remote image. The newer image and CSS hardening in the kit (0.20.0) belongs to a second pass this plugin does not use.
+- Kit pins raised again, to `obsidian-kit` 0.60.1 and `code-kit` 0.27.1. Of the skipped releases nothing reaches this plugin visibly: the copied modules (confirm dialog, settings walker, help row, keychain, settings merge, SHA-256) changed only in their origin headers. Three copied modules that nothing imported (`hub`, `settings_schema`, `num`) are removed.
 
 ## [0.5.3] — 2026-10-09
 
