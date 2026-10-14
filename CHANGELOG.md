@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Catalog rows:** the status text ("Installed 0.3.0 — not tracked") no longer breaks into two lines with its warning symbol set apart; a long description wraps instead.
 - **Removing a catalog or an access-token host asks first**, like removing a plugin does. Cancelling keeps the entry.
 - The confirmation text of an install ("Source", "ID", "Version") and the summary line of failed update checks come from the interface texts instead of being written in place.
 
