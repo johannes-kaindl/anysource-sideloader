@@ -53,13 +53,13 @@ function pinOf(fetched: FetchedPlugin): ReleasePin | undefined {
 
 /** Ein Release, das unter derselben Version andere `main.js`-Bytes liefert als beim letzten Installieren, verlangt eine eigene
  *  Bestätigung. Ohne Pin (alte Einträge, übernommene Plugins) oder bei anderer Version gibt es nichts zu vergleichen. */
-async function confirmReleaseUnchanged(ctx: FlowContext, known: ManagedPlugin | undefined, fetched: FetchedPlugin): Promise<boolean> {
+async function confirmReleaseUnchanged(ctx: FlowContext, known: ManagedPlugin | undefined, fetched: FetchedPlugin, confirmLabel: string): Promise<boolean> {
   const now = pinOf(fetched);
   if (!known?.pin || !now || known.pin.version !== now.version || known.pin.mainSha256 === now.mainSha256) return true;
   return confirmAction(ctx.app, {
     title: STRINGS.confirm.releaseChangedTitle(fetched.manifest.id, now.version),
     message: [STRINGS.confirm.releaseChangedMessage],
-    confirmLabel: STRINGS.confirm.install,
+    confirmLabel,
     cancelLabel: STRINGS.confirm.cancel,
     warning: true,
   });
@@ -131,7 +131,9 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
   const release = await fetchLatestRelease(ctx.http, ref, token);
   const fetched = await fetchPluginFiles(ctx.http, ref, release, token);
 
-  if (expectedId && !samePluginId(fetched.manifest.id, expectedId)) {
+  // Der Id-Wechsel-Guard vergleicht genau: ein Release, das die ID auch nur in der Schreibweise ändert, ist ein anderes Plugin für Obsidian
+  // (Manifest-ID), auch wenn das Dateisystem denselben Ordner meint. Nur "bekannt / schon installiert" faltet (samePluginId).
+  if (expectedId && fetched.manifest.id !== expectedId) {
     new Notice(STRINGS.confirm.idChanged(expectedId, fetched.manifest.id));
     return;
   }
@@ -161,7 +163,7 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
     if (!proceedOverwrite) return;
   }
 
-  if (!(await confirmReleaseUnchanged(ctx, ctx.settings.plugins.find((p) => samePluginId(p.id, fetched.manifest.id)), fetched))) return;
+  if (!(await confirmReleaseUnchanged(ctx, ctx.settings.plugins.find((p) => samePluginId(p.id, fetched.manifest.id)), fetched, STRINGS.confirm.install))) return;
 
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.installTitle(fetched.manifest.name),
@@ -276,7 +278,7 @@ export async function applyUpdate(ctx: FlowContext, id: string): Promise<void> {
   const release = await fetchLatestRelease(ctx.http, plugin.ref, token);
   const fetched = await fetchPluginFiles(ctx.http, plugin.ref, release, token);
 
-  if (!samePluginId(fetched.manifest.id, id)) {
+  if (fetched.manifest.id !== id) {
     new Notice(STRINGS.confirm.idChanged(id, fetched.manifest.id));
     return;
   }
@@ -286,7 +288,7 @@ export async function applyUpdate(ctx: FlowContext, id: string): Promise<void> {
     return;
   }
 
-  if (!(await confirmReleaseUnchanged(ctx, plugin, fetched))) return;
+  if (!(await confirmReleaseUnchanged(ctx, plugin, fetched, STRINGS.confirm.update))) return;
 
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.updateTitle(fetched.manifest.name, plugin.installedVersion, fetched.manifest.version),

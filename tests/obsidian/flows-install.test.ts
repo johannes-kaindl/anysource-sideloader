@@ -140,4 +140,27 @@ describe("applyUpdate — Pin", () => {
     expect(settings.plugins[0]?.pin).toEqual({ version: "1.1.0", mainSha256: sha256Hex(new TextEncoder().encode("code-2")) });
     expect(settings.plugins[0]?.installedVersion).toBe("1.1.0");
   });
+
+  it("ein Release, das die ID nur in der Schreibweise ändert, wird wie ein ID-Wechsel abgelehnt (Guard vergleicht genau)", async () => {
+    const known: ManagedPlugin = { id: "demo", repoUrl: "u", ref: HTTPS_REF, installedVersion: "1.0.0", availableVersion: "1.1.0", addedFrom: "url" };
+    const f = fetched("1.1.0", "code-2");
+    f.manifest = { ...f.manifest, id: "Demo" };
+    sourceMock.fetchPluginFiles.mockResolvedValue(f);
+    const { ctx, written, settings } = ctxWith([known]);
+    await applyUpdate(ctx, "demo");
+    expect(notices().map((n) => n.message)).toContain(STRINGS.confirm.idChanged("demo", "Demo"));
+    expect(written.size).toBe(0);
+    expect(settings.plugins[0]?.installedVersion).toBe("1.0.0");
+  });
+
+  it("die Warnung zum ausgetauschten Release beschriftet ihren Knopf nach der Aktion (Update, nicht Install)", async () => {
+    const pin = { version: "1.1.0", mainSha256: sha256Hex(new TextEncoder().encode("code-1")) };
+    const known: ManagedPlugin = { id: "demo", repoUrl: "u", ref: HTTPS_REF, installedVersion: "1.0.0", availableVersion: "1.1.0", addedFrom: "url", pin };
+    sourceMock.fetchLatestRelease.mockResolvedValue({ tagName: "1.1.0", version: "1.1.0", notes: "", htmlUrl: "", assets: [] });
+    sourceMock.fetchPluginFiles.mockResolvedValue(fetched("1.1.0", "anders"));
+    confirmMock.mockResolvedValueOnce(false);
+    const { ctx } = ctxWith([known]);
+    await applyUpdate(ctx, "demo");
+    expect(confirmMock.mock.calls[0]?.[1]).toMatchObject({ confirmLabel: STRINGS.confirm.update, warning: true });
+  });
 });

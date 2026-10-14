@@ -44,7 +44,7 @@ disappears, which looks exactly like data loss.
 
 An id must be safe as a folder name: ASCII letters and digits, with `-`, `_` and `.` from the second character on; at most 128 characters; no `..`, no dot at the end, no Windows device name (`con`, `nul`, `com1` …). Uppercase letters are fine. A manifest whose id does not fit is rejected rather than installed under a corrected name.
 
-Ids are compared the way the file system sees them, without regard to case: `Vault-Rag` and `vault-rag` are the same folder on macOS and Windows, so they count as the same plugin.
+Ids are compared the way the file system sees them, without regard to case: `Vault-Rag` and `vault-rag` are the same folder on macOS and Windows, so they count as the same plugin when the sideloader checks whether one is already installed. The id guard below is exact: a release that changes the id, even only its case, is refused.
 
 An install is bound to the id it was made with: a release that changes the id is refused rather
 than silently swapping out what you installed.
