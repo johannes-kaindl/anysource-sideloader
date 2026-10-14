@@ -61,9 +61,12 @@ import { createBilanz, parseArgs, runDriver, Vorbedingung } from "../../tools/ob
 import {
   type Cdp,
   attachTo,
+  beimAbbruch,
   bereiteInstanzVor,
+  clearNotices,
   clickReal,
   closeExtraLeaves,
+  istAbgebrochen,
   notices,
   pollUntil,
   releaseAlwaysOnTop,
@@ -363,19 +366,7 @@ async function clickModalButton(cdp: Cdp, label: string): Promise<boolean> {
 async function closeModals(cdp: Cdp): Promise<void> {
   await cdp.evaluate(`
     for (const c of document.querySelectorAll(".modal-container")) c.remove();
-    await new Promise((r) => setTimeout(r, 150));
-    return true;
-  `);
-}
-
-/** Notices leeren. Obsidians Toast ist global — jedes der Plugins im Vault schreibt
- *  hinein, und ein alter Text sähe aus wie die Antwort auf die gerade ausgelöste
- *  Aktion (Skill-Falle „Ort, den sich das Plugin mit Obsidian teilt“). */
-async function clearNotices(cdp: Cdp): Promise<void> {
-  await cdp.evaluate(`
-    const docs = new Set([document]);
-    if (typeof activeDocument !== "undefined" && activeDocument) docs.add(activeDocument);
-    for (const d of docs) for (const n of d.querySelectorAll(".notice")) n.remove();
+    await new Promise((r) => setTimeout(r, ${istAbgebrochen() ? 0 : 150}));
     return true;
   `);
 }
@@ -2100,7 +2091,7 @@ async function main(): Promise<void> {
           Object.assign(plugin.settings, JSON.parse(${JSON.stringify(previousSettings)}));
           if (plugin.__smokeSecretStore) { plugin.secretStore = plugin.__smokeSecretStore; delete plugin.__smokeSecretStore; }
           await plugin.saveSettings();
-          await new Promise((r) => setTimeout(r, 600));
+          await new Promise((r) => setTimeout(r, ${istAbgebrochen() ? 0 : 600}));
           const pfad = app.vault.configDir + "/plugins/" + ${JSON.stringify(PLUGIN_ID)} + "/data.json";
           return JSON.stringify(JSON.parse(await app.vault.adapter.read(pfad)));
         `)
@@ -2115,20 +2106,11 @@ async function main(): Promise<void> {
     await releaseAlwaysOnTop(cdp).catch(() => undefined);
   };
 
-  let signalCleanupRunning = false;
-  const onAbortSignal = (signal: NodeJS.Signals) => {
-    if (signalCleanupRunning) return;
-    signalCleanupRunning = true;
-    void (async () => {
-      console.log(`\n\nAbbruch durch ${signal} — raeume Smoke-Zustand auf...`);
-      await cleanupState();
-      cdp.close();
-      await forge.stop().catch(() => undefined);
-      process.exit(130);
-    })();
-  };
-  process.on("SIGINT", onAbortSignal);
-  process.on("SIGTERM", onAbortSignal);
+  // Vor der ersten Mutation anmelden; derselbe Schritt laeuft im Normalweg (`zustand.schliesse()` im `finally`).
+  const zustand = beimAbbruch(async () => {
+    await cleanupState();
+    await forge.stop().catch(() => undefined);
+  }, "Wirt-Zustand zuruecksetzen");
 
   try {
     await cdp.mitschnitt((zeile) => { console.log(`  [renderer] ${zeile}`); });
@@ -2137,7 +2119,6 @@ async function main(): Promise<void> {
     // korrekt meldet. `requireVisible` holt das Fenster dieser Instanz nach vorn — ein `osascript activate`
     // träfe stattdessen die reguläre Obsidian-Instanz (gemessen von kl-w19, 2026-10-12).
     await requireVisible(cdp);
-    await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true }).catch(() => undefined);
 
     const vaultName = await cdp.evaluate<string>(`return window.app ? app.vault.getName() : "";`);
     if (!vaultName) throw new Error("Obsidians `app` ist im Renderer nicht erreichbar.");
@@ -2242,14 +2223,11 @@ async function main(): Promise<void> {
     }
   } finally {
     // Aufräumen hängt nie am Ergebnis: auch ein abgebrochener Lauf gibt den Vault so
-    // zurück, wie er ihn vorgefunden hat. Dieselbe Funktion wie der SIGINT/SIGTERM-Handler
-    // oben — kein Doppelcode.
-    process.off("SIGINT", onAbortSignal);
-    process.off("SIGTERM", onAbortSignal);
+    // zurück, wie er ihn vorgefunden hat. Derselbe Schritt wie beim Abbruch (`beimAbbruch` oben).
     if (keep) console.log(`(--keep: ${TARGET_PLUGIN_ID} bleibt im Vault stehen)`);
-    await cleanupState();
+    await zustand.schliesse();
+    if (istAbgebrochen()) return;   // das Modul druckt die Bilanz und beendet den Prozess selbst
     cdp.close();
-    await forge.stop();
   }
 
   for (const w of herkunftsWarnungen) console.log(w);

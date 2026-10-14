@@ -35,7 +35,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { argv, cwd, env, exit } from "node:process";
 
-import { attachTo, Cdp, pollUntil } from "../../tools/obsidian-cdp/cdp.js";
+import { attachTo, Cdp, pollUntil, schliesseDialog } from "../../tools/obsidian-cdp/cdp.js";
 import { capture, setWindowSize, writeShot, type Rect, type ShotOptions } from "../../tools/obsidian-cdp/shot.js";
 import { buildVault, stagingVaultDir } from "../../tools/obsidian-cdp/vault.js";
 
@@ -267,8 +267,9 @@ const SHOTS: Shot[] = [
 
 /** Nach JEDEM Bild aufraeumen — der Zustand des einen darf das naechste nicht bestimmen. */
 async function aufraeumen(ctx: Kontext): Promise<void> {
+  // Beide Formen des Schliessen-Knopfs (`.modal-close-button` bis 1.12, `.modal-header-button` in 1.14.4).
+  await schliesseDialog(ctx.workspace).catch(() => undefined);
   await ctx.workspace.evaluate(`
-    document.querySelector(".modal-close-button")?.click();
     app.setting.close();
     return true;
   `).catch(() => undefined);
