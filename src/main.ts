@@ -4,7 +4,7 @@ import { obsidianSecretStore, secretStorageAvailable } from "./vendor/kit-obsidi
 import { MemorySecretStore, type SecretStore } from "./vendor/kit/secrets";
 import { SideloaderSettingTab } from "./obsidian/settings-tab";
 import { obsidianHttp } from "./obsidian/http";
-import { checkAllUpdates, checkUpdatesWithNotices, installFromUrl, type FlowContext } from "./obsidian/flows";
+import { checkAllUpdates, checkUpdatesWithNotices, installFromUrl, reportFlowError, type FlowContext } from "./obsidian/flows";
 import { InstallUrlModal } from "./obsidian/install-url-modal";
 import { STRINGS } from "./i18n/strings";
 import type { HttpPort } from "./core/forge/types";
@@ -39,13 +39,12 @@ export default class AnySourceSideloaderPlugin extends Plugin {
       callback: () => { void this.runCheckUpdatesCommand(); },
     });
     // Task C1: "Install from URL" war dokumentiert, hatte aber keine Bedienung — ein
-    // Command statt eines eigenen Ribbon-Icons (das bestehende Ribbon-Icon oeffnet die
-    // Store-View, nicht diesen Pfad; beide sind unabhaengige Einstiege).
+    // Command als einziger Einstieg (es gibt kein Ribbon-Icon; die Store-View ist aufgeloest, die Texte leben im Settings-Tab).
     this.addCommand({
       id: "install-from-url",
       name: STRINGS.installUrl.commandName,
       callback: () => {
-        new InstallUrlModal(this.app, (url) => { void installFromUrl(this.flowContext(), url); }).open();
+        new InstallUrlModal(this.app, (url) => { void installFromUrl(this.flowContext(), url).catch(reportFlowError); }).open();
       },
     });
 

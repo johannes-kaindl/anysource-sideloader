@@ -28,8 +28,10 @@ import {
   fetchReleaseNotesFor,
   installFromUrl,
   removeInstalled,
+  reportFlowError,
   type FlowContext,
 } from "./flows";
+import { confirmAction } from "../vendor/kit-obsidian/confirm";
 import { ReleaseNotesModal } from "./release-notes-modal";
 import { Notice, setIcon } from "obsidian";
 import { refreshSettingsTab, renderSettingDefinitions } from "../vendor/kit-obsidian/settings_walker";
@@ -489,7 +491,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
               .setButtonText(STRINGS.store.update)
               .setCta()
               .onClick(() => {
-                void applyUpdate(this.host.flowContext(), plugin.id).finally(() => { this.refresh(); });
+                void applyUpdate(this.host.flowContext(), plugin.id).catch(reportFlowError).finally(() => { this.refresh(); });
               }),
           );
         },
@@ -539,7 +541,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
               .setButtonText(STRINGS.store.updateTo(faellig))
               .setCta()
               .onClick(() => {
-                void applyUpdate(this.host.flowContext(), plugin.id).finally(() => { this.refresh(); });
+                void applyUpdate(this.host.flowContext(), plugin.id).catch(reportFlowError).finally(() => { this.refresh(); });
               }),
           );
         } else {
@@ -569,7 +571,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
             .setIcon("trash-2")
             .setTooltip(STRINGS.store.remove)
             .onClick(() => {
-              void removeInstalled(this.host.flowContext(), plugin.id).finally(() => { this.refresh(); });
+              void removeInstalled(this.host.flowContext(), plugin.id).catch(reportFlowError).finally(() => { this.refresh(); });
             }),
         );
       },
@@ -646,7 +648,7 @@ export class SideloaderSettingTab extends PluginSettingTab {
                 .setButtonText(STRINGS.store.install)
                 .setCta()
                 .onClick(() => {
-                  void installFromUrl(this.host.flowContext(), entry.repo, entry.id).finally(() => {
+                  void installFromUrl(this.host.flowContext(), entry.repo, entry.id).catch(reportFlowError).finally(() => {
                     void this.ladeKatalog();
                   });
                 }),
@@ -719,9 +721,15 @@ export class SideloaderSettingTab extends PluginSettingTab {
               .setIcon("trash-2")
               .setTooltip(STRINGS.settings.catalogRemove)
               .onClick(() => {
-                this.host.settings.catalogs.splice(index, 1);
-                void this.host.saveSettings();
-                this.refresh();
+                void confirmAction(this.app, {
+                  title: STRINGS.confirm.removeCatalogTitle, message: STRINGS.confirm.removeCatalogMessage(url),
+                  confirmLabel: STRINGS.confirm.remove, cancelLabel: STRINGS.confirm.cancel, warning: true,
+                }).then((ok) => {
+                  if (!ok) return;
+                  this.host.settings.catalogs.splice(index, 1);
+                  void this.host.saveSettings();
+                  this.refresh();
+                });
               }),
           );
         },
@@ -773,9 +781,15 @@ export class SideloaderSettingTab extends PluginSettingTab {
               .setIcon("trash-2")
               .setTooltip(STRINGS.settings.tokenRemove)
               .onClick(() => {
-                delete this.host.settings.hostSecrets[host];
-                void this.host.saveSettings();
-                this.refresh();
+                void confirmAction(this.app, {
+                  title: STRINGS.confirm.removeHostTitle(host), message: STRINGS.confirm.removeHostMessage,
+                  confirmLabel: STRINGS.confirm.remove, cancelLabel: STRINGS.confirm.cancel, warning: true,
+                }).then((ok) => {
+                  if (!ok) return;
+                  delete this.host.settings.hostSecrets[host];
+                  void this.host.saveSettings();
+                  this.refresh();
+                });
               }),
           );
         },

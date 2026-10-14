@@ -14,6 +14,12 @@ import type { SecretStore } from "../vendor/kit/secrets";
 import { resolveHostToken } from "./tokens";
 import { adapterFilePort, enablePlugin, reloadIfEnabled, removePlugin, writePluginFiles } from "./installer";
 
+/** Zeigt einen Fehler eines Ablaufs als Notice. Die Aufrufer starten die Abläufe mit `void` aus einem Klick; ohne diesen
+ *  Fang blieb ein HTTP-Fehler beim Installieren oder Aktualisieren unsichtbar (Funktions-Inventur 2026-10-07). */
+export function reportFlowError(e: unknown): void {
+  new Notice(STRINGS.notices.actionFailed(e instanceof Error ? e.message : String(e)));
+}
+
 /** Alles, was ein Use-Case braucht — vom Host (`main.ts`/`store-view.ts`) einmal gebaut
  *  und durchgereicht. `settings` ist dieselbe Objektreferenz wie `plugin.settings`: die
  *  Flows mutieren sie in-place und rufen `saveSettings()` selbst auf, damit ein Aufrufer
@@ -45,7 +51,7 @@ function upsertManagedPlugin(settings: SideloaderSettings, plugin: ManagedPlugin
 }
 
 function sourceLine(ref: RepoRef): string {
-  return `Source: ${ref.baseUrl}/${ref.owner}/${ref.repo}`;
+  return STRINGS.confirm.sourceLine(`${ref.baseUrl}/${ref.owner}/${ref.repo}`);
 }
 
 async function confirmChecksumAwareInstall(
@@ -60,7 +66,7 @@ async function confirmChecksumAwareInstall(
     checksums: FetchedPlugin["checksums"];
   },
 ): Promise<boolean> {
-  const message = [sourceLine(opts.ref), `ID: ${opts.id}`, `Version: ${opts.version}`];
+  const message = [sourceLine(opts.ref), STRINGS.confirm.idLine(opts.id), STRINGS.confirm.versionLine(opts.version)];
   const notes = excerpt(opts.notes);
   if (notes) message.push(notes);
   if (opts.checksums === "absent") message.push(STRINGS.confirm.checksumAbsent);

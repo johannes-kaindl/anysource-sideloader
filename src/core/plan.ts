@@ -1,6 +1,7 @@
 import type { ManagedPlugin } from "./settings";
 import type { ReleaseInfo } from "./forge/types";
 import { compareVersions, isNewer } from "./version";
+import { STRINGS } from "../i18n/strings";
 
 export interface UpdateCheckResult {
   id: string;
@@ -52,6 +53,6 @@ export function fasseFehlerZusammen(
   if (fehler.length === 0) return null;
   const erster = fehler[0];
   if (!erster) return null;
-  if (fehler.length === 1) return `Update check for "${erster.id}" failed: ${erster.message}`;
-  return `${fehler.length} update checks failed (first: "${erster.id}" — ${erster.message})`;
+  if (fehler.length === 1) return STRINGS.notices.checkFailed(erster.id, erster.message);
+  return STRINGS.notices.checkFailedMany(fehler.length, erster.id, erster.message);
 }
