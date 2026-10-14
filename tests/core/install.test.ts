@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { isValidPluginId, parseChecksums, parsePluginManifest, pluginDir, verifyChecksum } from "../../src/core/install";
+import { isValidPluginId, parseChecksums, parsePluginManifest, pluginDir, samePluginId, verifyChecksum } from "../../src/core/install";
 import { sha256Hex } from "../../src/vendor/code-kit/sha256";
 
 describe("isValidPluginId — Path-Traversal-Kante", () => {
   it("akzeptiert normale ids", () => {
     for (const id of ["vault-rag", "obsidian42-brat", "a", "x_y-z9"]) expect(isValidPluginId(id)).toBe(true);
   });
-  it("lehnt Traversal, Slash, Punkt, Leer und Grossbuchstaben ab", () => {
-    for (const id of ["..", "../x", "a/b", "a\\b", "", ".hidden", "a.b", "UPPER", " a"]) {
+  it("akzeptiert Grossbuchstaben und Punkte ab dem zweiten Zeichen (fünf Store-Plugins wurden bisher abgelehnt)", () => {
+    for (const id of ["ObsidianAnkiSync", "OA-file-hider", "scrybble.ink", "UPPER", "a.b"]) expect(isValidPluginId(id)).toBe(true);
+  });
+  it("lehnt Traversal, Slash, führenden Punkt, Leer, Punkt am Ende, Windows-Gerätenamen und Übergrosses ab", () => {
+    for (const id of ["..", "../x", "a/b", "a\\b", "", ".hidden", " a", "foo.", "a..b", "con", "NUL.txt", "a".repeat(129)]) {
       expect(isValidPluginId(id)).toBe(false);
     }
+  });
+  it("samePluginId vergleicht wie APFS und NTFS: ohne Rücksicht auf Gross-/Kleinschreibung", () => {
+    expect(samePluginId("Vault-Rag", "vault-rag")).toBe(true);
+    expect(samePluginId("vault-rag", "vault-rag-2")).toBe(false);
   });
 });
 

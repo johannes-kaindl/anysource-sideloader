@@ -4,5 +4,8 @@
   "sha": "ac89f10",
   "modules": "secrets.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh.",
-  "vendored": "secrets.ts"
+  "vendored": "secrets.ts",
+  "obsidian_kit_version": "0.60.1",
+  "obsidian_kit_sha": "4dfbd4e",
+  "obsidian_kit_vendored": "plugin-id.ts"
 }

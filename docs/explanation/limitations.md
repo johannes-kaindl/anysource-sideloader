@@ -45,12 +45,6 @@ Forge detection probes `/api/v1/version` without a token. An instance that gates
 behind authentication looks like "no Gitea API here", the plugin falls back to raw files, and
 those fail too. The result is a raw-fallback error on an instance that has a working API.
 
-## Plugin ids are stricter than Obsidian's
-
-Ids must match `^[a-z0-9][a-z0-9-_]{0,63}$` — no uppercase, no dots, where Obsidian permits
-both. A plugin with an otherwise valid but non-matching id is rejected rather than installed
-under a corrected name.
-
 ## Adoption only sees catalog entries
 
 Plugins already in your vault are recognised by matching them against subscribed catalogs. A

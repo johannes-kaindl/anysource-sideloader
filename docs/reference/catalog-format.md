@@ -33,7 +33,7 @@ A catalog is a single JSON document served over HTTP(S). Its URL is what people 
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `id` | string | yes | Must match `^[a-z0-9][a-z0-9-_]{0,63}$` and must equal the plugin's own manifest id. |
+| `id` | string | yes | Must be a valid plugin id (see [Plugin ids](settings-and-commands.md#plugin-ids)) and must equal the plugin's own manifest id. |
 | `name` | string | yes | Display name. |
 | `description` | string | yes | One line, shown under the name. |
 | `repo` | string | yes | Repository URL. Must parse as a supported forge URL — see [Forge support](forge-support.md). |

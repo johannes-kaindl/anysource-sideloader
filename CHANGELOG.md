@@ -16,6 +16,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Plugin IDs with uppercase letters or dots are accepted** (`ObsidianAnkiSync`, `scrybble.ink`: five Community-store plugins were refused before). The check now comes from the kit and keeps the path safety: IDs over 128 characters, IDs ending in a dot and Windows device names (`con`, `nul` …) are refused. Two IDs that differ only in case count as the same plugin (same folder on macOS and Windows), for example when a plugin is already installed or an update changes the ID.
 - **Catalog rows:** the status text ("Installed 0.3.0 — not tracked") no longer breaks into two lines with its warning symbol set apart; a long description wraps instead.
 - **Removing a catalog or an access-token host asks first**, like removing a plugin does. Cancelling keeps the entry.
 - The confirmation text of an install ("Source", "ID", "Version") and the summary line of failed update checks come from the interface texts instead of being written in place.

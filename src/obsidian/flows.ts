@@ -4,7 +4,7 @@
 import { Notice, type App } from "obsidian";
 import { confirmAction } from "../vendor/kit-obsidian/confirm";
 import { detectForge, fetchLatestRelease, fetchPluginFiles, fetchReleasesSince, type FetchedPlugin } from "../core/source";
-import { pluginDir } from "../core/install";
+import { pluginDir, samePluginId } from "../core/install";
 import type { HttpPort, ReleaseInfo, RepoRef } from "../core/forge/types";
 import type { ManagedPlugin, ReleasePin, SideloaderSettings } from "../core/settings";
 import { fasseFehlerZusammen, planUpdates, type UpdateCheckResult } from "../core/plan";
@@ -66,7 +66,7 @@ async function confirmReleaseUnchanged(ctx: FlowContext, known: ManagedPlugin | 
 }
 
 function upsertManagedPlugin(settings: SideloaderSettings, plugin: ManagedPlugin): void {
-  const i = settings.plugins.findIndex((p) => p.id === plugin.id);
+  const i = settings.plugins.findIndex((p) => samePluginId(p.id, plugin.id));
   if (i >= 0) settings.plugins[i] = plugin;
   else settings.plugins.push(plugin);
 }
@@ -131,7 +131,7 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
   const release = await fetchLatestRelease(ctx.http, ref, token);
   const fetched = await fetchPluginFiles(ctx.http, ref, release, token);
 
-  if (expectedId && fetched.manifest.id !== expectedId) {
+  if (expectedId && !samePluginId(fetched.manifest.id, expectedId)) {
     new Notice(STRINGS.confirm.idChanged(expectedId, fetched.manifest.id));
     return;
   }
@@ -144,7 +144,7 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
   const port = adapterFilePort(ctx.app);
   const dir = pluginDir(ctx.app.vault.configDir, fetched.manifest.id);
   const dirExists = await port.exists(dir);
-  const isKnownPlugin = ctx.settings.plugins.some((p) => p.id === fetched.manifest.id);
+  const isKnownPlugin = ctx.settings.plugins.some((p) => samePluginId(p.id, fetched.manifest.id));
   if (dirExists && !isKnownPlugin) {
     // Ein Plugin-Ordner mit dieser id existiert bereits, ist aber keinem ManagedPlugin
     // zugeordnet — er gehoert also entweder einem manuell installierten Plugin oder einem
@@ -161,7 +161,7 @@ export async function installFromUrl(ctx: FlowContext, url: string, expectedId?:
     if (!proceedOverwrite) return;
   }
 
-  if (!(await confirmReleaseUnchanged(ctx, ctx.settings.plugins.find((p) => p.id === fetched.manifest.id), fetched))) return;
+  if (!(await confirmReleaseUnchanged(ctx, ctx.settings.plugins.find((p) => samePluginId(p.id, fetched.manifest.id)), fetched))) return;
 
   const confirmed = await confirmChecksumAwareInstall(ctx, {
     title: STRINGS.confirm.installTitle(fetched.manifest.name),
@@ -276,7 +276,7 @@ export async function applyUpdate(ctx: FlowContext, id: string): Promise<void> {
   const release = await fetchLatestRelease(ctx.http, plugin.ref, token);
   const fetched = await fetchPluginFiles(ctx.http, plugin.ref, release, token);
 
-  if (fetched.manifest.id !== id) {
+  if (!samePluginId(fetched.manifest.id, id)) {
     new Notice(STRINGS.confirm.idChanged(id, fetched.manifest.id));
     return;
   }

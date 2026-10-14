@@ -42,8 +42,9 @@ disappears, which looks exactly like data loss.
 
 ## Plugin ids
 
-Ids must match `^[a-z0-9][a-z0-9-_]{0,63}$` — stricter than Obsidian itself, which permits
-uppercase and dots. An otherwise valid manifest whose id does not match is rejected.
+An id must be safe as a folder name: ASCII letters and digits, with `-`, `_` and `.` from the second character on; at most 128 characters; no `..`, no dot at the end, no Windows device name (`con`, `nul`, `com1` …). Uppercase letters are fine. A manifest whose id does not fit is rejected rather than installed under a corrected name.
+
+Ids are compared the way the file system sees them, without regard to case: `Vault-Rag` and `vault-rag` are the same folder on macOS and Windows, so they count as the same plugin.
 
 An install is bound to the id it was made with: a release that changes the id is refused rather
 than silently swapping out what you installed.

@@ -103,6 +103,19 @@ describe("installFromUrl — Quellen-Härtung", () => {
     expect(settings.plugins[0]?.pin).toEqual(pin);
   });
 
+  it("eine ID in anderer Schreibweise ist dasselbe Plugin (APFS/NTFS): der Pin des Eintrags greift", async () => {
+    const pin = { version: "1.0.0", mainSha256: sha256Hex(new TextEncoder().encode("code-1")) };
+    const known: ManagedPlugin = { id: "demo", repoUrl: "u", ref: HTTPS_REF, installedVersion: "1.0.0", availableVersion: null, addedFrom: "url", pin };
+    const f = fetched("1.0.0", "code-AUSGETAUSCHT");
+    f.manifest = { ...f.manifest, id: "Demo" };
+    sourceMock.fetchPluginFiles.mockResolvedValue(f);
+    confirmMock.mockResolvedValueOnce(false);
+    const { ctx, settings } = ctxWith([known]);
+    await installFromUrl(ctx, "https://git.example.com/o/demo");
+    expect(confirmMock.mock.calls[0]?.[1].title).toBe(STRINGS.confirm.releaseChangedTitle("Demo", "1.0.0"));
+    expect(settings.plugins).toHaveLength(1);
+  });
+
   it("dieselbe Version mit denselben Bytes fragt nicht zusätzlich", async () => {
     const pin = { version: "1.0.0", mainSha256: sha256Hex(new TextEncoder().encode("code-1")) };
     const known: ManagedPlugin = { id: "demo", repoUrl: "u", ref: HTTPS_REF, installedVersion: "1.0.0", availableVersion: null, addedFrom: "url", pin };

@@ -1,10 +1,10 @@
 import { sha256Hex } from "../vendor/code-kit/sha256";
+import { isValidPluginId } from "../vendor/kit/plugin-id";
 
-const ID_RE = /^[a-z0-9][a-z0-9\-_]{0,63}$/;
+/** Pfadsicherheit einer Plugin-ID: die Prüfung des Kits (`obsidian-kit` `pure/plugin-id`). Wer IDs vergleicht, nimmt `samePluginId`. */
+export { isValidPluginId, samePluginId } from "../vendor/kit/plugin-id";
 
 export interface PluginManifestData { id: string; name: string; version: string; minAppVersion?: string; }
-
-export function isValidPluginId(id: string): boolean { return ID_RE.test(id); }
 
 export function parsePluginManifest(jsonText: string): PluginManifestData {
   const m = JSON.parse(jsonText) as { id?: unknown; name?: unknown; version?: unknown; minAppVersion?: unknown };
