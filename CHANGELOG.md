@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-14
+
 ### Fixed
 
 - **Errors while installing or updating are shown.** A failed download, a refused checksum or an unreachable source used to end silently after a click on Install or Update; now a notice names the cause ("The action failed: …"). Messages that come from the source itself are still in the language of the original text.
