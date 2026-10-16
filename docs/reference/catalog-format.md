@@ -9,7 +9,7 @@ A catalog is a single JSON document served over HTTP(S). Its URL is what people 
 ```json
 {
   "catalogVersion": 1,
-  "name": "Order from Traces — Obsidian Plugins",
+  "name": "Traces — Obsidian Plugins",
   "plugins": [
     {
       "id": "vault-rag",
