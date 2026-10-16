@@ -11,6 +11,7 @@ import {
   type ChecksumVerdict,
   type PluginManifestData,
 } from "./install";
+import { STRINGS } from "../i18n/strings";
 
 export async function detectForge(http: HttpPort, url: string): Promise<RepoRef | null> {
   const parsed = parseRepoUrl(url);
@@ -42,7 +43,7 @@ export async function fetchLatestRelease(
     const releaseUrl = gh.latestReleaseUrl(ref);
     const res = await http({ url: releaseUrl, headers: gh.apiHeaders(token) });
     if (res.status !== 200) {
-      throw new Error(`Download fehlgeschlagen fuer GitHub-Release (${releaseUrl}): HTTP ${res.status}`);
+      throw new Error(STRINGS.errors.downloadFailed("GitHub release", res.status, releaseUrl));
     }
     return gh.parseGithubRelease(res.text);
   }
@@ -50,7 +51,7 @@ export async function fetchLatestRelease(
     const releaseUrl = gitea.latestReleaseUrl(ref);
     const res = await http({ url: releaseUrl, headers: gitea.authHeaders(token) });
     if (res.status !== 200) {
-      throw new Error(`Download fehlgeschlagen fuer Gitea-Release (${releaseUrl}): HTTP ${res.status}`);
+      throw new Error(STRINGS.errors.downloadFailed("Gitea release", res.status, releaseUrl));
     }
     return gitea.parseGiteaRelease(res.text);
   }
@@ -72,8 +73,7 @@ export async function fetchLatestRelease(
   }
   if (manifestRes.status !== 200) {
     throw new Error(
-      `Download fehlgeschlagen fuer manifest.json (${rawFileUrl({ ref, gitRef: zweige[0] as string }, "manifest.json")}): `
-      + `HTTP ${ersterFehler}`,
+      STRINGS.errors.downloadFailed("manifest.json", ersterFehler, rawFileUrl({ ref, gitRef: zweige[0] as string }, "manifest.json")),
     );
   }
   const manifest = JSON.parse(manifestRes.text) as { version?: unknown };
@@ -104,7 +104,7 @@ export async function fetchReleasesSince(
     const url = gh.releasesListUrl(ref);
     const res = await http({ url, headers: gh.apiHeaders(token) });
     if (res.status !== 200) {
-      throw new Error(`Download fehlgeschlagen fuer GitHub-Release-Liste (${url}): HTTP ${res.status}`);
+      throw new Error(STRINGS.errors.downloadFailed("GitHub release list", res.status, url));
     }
     return releasesSince(installedVersion, gh.parseGithubReleaseList(res.text));
   }
@@ -112,7 +112,7 @@ export async function fetchReleasesSince(
     const url = gitea.releasesListUrl(ref);
     const res = await http({ url, headers: gitea.authHeaders(token) });
     if (res.status !== 200) {
-      throw new Error(`Download fehlgeschlagen fuer Gitea-Release-Liste (${url}): HTTP ${res.status}`);
+      throw new Error(STRINGS.errors.downloadFailed("Gitea release list", res.status, url));
     }
     return releasesSince(installedVersion, gitea.parseGiteaReleaseList(res.text));
   }
@@ -173,10 +173,10 @@ export async function fetchPluginFiles(
 
   for (const name of ["main.js", "manifest.json"]) {
     const asset = findAsset(name);
-    if (!asset) throw new Error(`Pflicht-Asset fehlt im Release: ${name}`);
+    if (!asset) throw new Error(STRINGS.errors.requiredAssetMissing(name));
     const res = await http(buildAssetRequest(ref, asset, token));
     if (res.status !== 200) {
-      throw new Error(`Download fehlgeschlagen fuer ${name}: HTTP ${res.status}`);
+      throw new Error(STRINGS.errors.downloadFailed(name, res.status));
     }
     const data = new Uint8Array(res.arrayBuffer);
     files.push({ name, data: res.arrayBuffer });
@@ -191,12 +191,12 @@ export async function fetchPluginFiles(
       files.push({ name: "styles.css", data: res.arrayBuffer });
       verdicts.push(verifyChecksum(checksums, "styles.css", data));
     } else if (res.status !== 404) {
-      throw new Error(`Download fehlgeschlagen fuer styles.css: HTTP ${res.status}`);
+      throw new Error(STRINGS.errors.downloadFailed("styles.css", res.status));
     }
   }
 
   const manifestFile = files.find((f) => f.name === "manifest.json");
-  if (!manifestFile) throw new Error("manifest.json konnte nicht geladen werden");
+  if (!manifestFile) throw new Error(STRINGS.errors.manifestNotLoaded);
   const manifestText = new TextDecoder().decode(manifestFile.data);
   const manifest = parsePluginManifest(manifestText);
 

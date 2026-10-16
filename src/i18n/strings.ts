@@ -41,6 +41,25 @@ export const STRINGS = {
     catalogReload: "Reload catalogs",
     openSettingsCommand: "Open settings",
   },
+  // Fehler der Quellen (src/core, Installer): erscheinen als Notice („The action failed: …“) und
+  // werden in docs/how-to/troubleshooting.md wörtlich zitiert — beides gemeinsam ändern.
+  errors: {
+    downloadFailed: (what: string, status: number | string, url?: string) =>
+      url ? `Download failed for ${what} (${url}): HTTP ${status}` : `Download failed for ${what}: HTTP ${status}`,
+    requiredAssetMissing: (name: string) => `Required asset missing from the release: ${name}`,
+    manifestNotLoaded: "manifest.json could not be loaded",
+    manifestInvalidId: "Manifest has no valid id",
+    manifestMissingFields: "Manifest has no name/version",
+    invalidPluginId: (id: string) => `Invalid plugin id: ${id}`,
+    notJson: "Response is not JSON",
+    notARelease: "Response is not a release (tag_name missing)",
+    notAReleaseList: "Response is not a release list",
+    catalogNotObject: "Catalog: not an object",
+    catalogVersionUnsupported: (v: string) => `Catalog: catalogVersion ${v} is not supported`,
+    catalogNameMissing: "Catalog: name is missing",
+    checksumVerificationFailed: (id: string) => `Checksum verification failed for ${id}: the downloaded files are not written`,
+    unexpectedFileName: (name: string) => `Unexpected file name in the release, not written: ${name}`,
+  },
   notices: {
     updatesAvailable: (n: number) => `${n} plugin update${n === 1 ? "" : "s"} available — see the AnySource Sideloader settings`,
     upToDate: "All sideloaded plugins are up to date.",

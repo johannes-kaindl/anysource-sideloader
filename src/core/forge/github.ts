@@ -1,5 +1,6 @@
 import type { AssetRef, HttpRequest, ReleaseInfo, RepoRef } from "./types";
 import { normalizeVersion } from "../version";
+import { STRINGS } from "../../i18n/strings";
 
 export function latestReleaseUrl(ref: RepoRef): string {
   return `https://api.github.com/repos/${ref.owner}/${ref.repo}/releases/latest`;
@@ -32,9 +33,9 @@ function toReleaseInfo(rel: unknown): ReleaseInfo | null {
 
 export function parseGithubRelease(jsonText: string): ReleaseInfo {
   let data: unknown;
-  try { data = JSON.parse(jsonText); } catch { throw new Error("Antwort ist kein JSON"); }
+  try { data = JSON.parse(jsonText); } catch { throw new Error(STRINGS.errors.notJson); }
   const rel = toReleaseInfo(data);
-  if (!rel) throw new Error("Antwort ist kein Release (tag_name fehlt)");
+  if (!rel) throw new Error(STRINGS.errors.notARelease);
   return rel;
 }
 
@@ -42,8 +43,8 @@ export function parseGithubRelease(jsonText: string): ReleaseInfo {
  *  ein einzelner kaputter/Draft-Eintrag darf die Notes-Historie nicht leeren. */
 export function parseGithubReleaseList(jsonText: string): ReleaseInfo[] {
   let data: unknown;
-  try { data = JSON.parse(jsonText); } catch { throw new Error("Antwort ist kein JSON"); }
-  if (!Array.isArray(data)) throw new Error("Antwort ist keine Release-Liste");
+  try { data = JSON.parse(jsonText); } catch { throw new Error(STRINGS.errors.notJson); }
+  if (!Array.isArray(data)) throw new Error(STRINGS.errors.notAReleaseList);
   const out: ReleaseInfo[] = [];
   for (const item of data) {
     const rel = toReleaseInfo(item);

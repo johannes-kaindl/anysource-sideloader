@@ -19,7 +19,7 @@ describe("parseCatalog", () => {
   });
 
   it("wirft bei fremder catalogVersion und bei Nicht-JSON", () => {
-    expect(() => parseCatalog('{"catalogVersion":2,"name":"x","plugins":[]}')).toThrow(/catalogVersion/);
+    expect(() => parseCatalog('{"catalogVersion":2,"name":"x","plugins":[]}')).toThrow("Catalog: catalogVersion 2 is not supported");
     expect(() => parseCatalog("<html>")).toThrow();
   });
 

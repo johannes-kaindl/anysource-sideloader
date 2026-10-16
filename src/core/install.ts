@@ -1,5 +1,6 @@
 import { sha256Hex } from "../vendor/code-kit/sha256";
 import { isValidPluginId } from "../vendor/kit/plugin-id";
+import { STRINGS } from "../i18n/strings";
 
 /** Pfadsicherheit einer Plugin-ID: die Prüfung des Kits (`obsidian-kit` `pure/plugin-id`). Wer IDs vergleicht, nimmt `samePluginId`. */
 export { isValidPluginId, samePluginId } from "../vendor/kit/plugin-id";
@@ -8,14 +9,14 @@ export interface PluginManifestData { id: string; name: string; version: string;
 
 export function parsePluginManifest(jsonText: string): PluginManifestData {
   const m = JSON.parse(jsonText) as { id?: unknown; name?: unknown; version?: unknown; minAppVersion?: unknown };
-  if (typeof m.id !== "string" || !isValidPluginId(m.id)) throw new Error(`Manifest ohne gueltige id`);
-  if (typeof m.name !== "string" || typeof m.version !== "string") throw new Error("Manifest ohne name/version");
+  if (typeof m.id !== "string" || !isValidPluginId(m.id)) throw new Error(STRINGS.errors.manifestInvalidId);
+  if (typeof m.name !== "string" || typeof m.version !== "string") throw new Error(STRINGS.errors.manifestMissingFields);
   return { id: m.id, name: m.name, version: m.version,
     minAppVersion: typeof m.minAppVersion === "string" ? m.minAppVersion : undefined };
 }
 
 export function pluginDir(configDir: string, id: string): string {
-  if (!isValidPluginId(id)) throw new Error(`ungueltige Plugin-id: ${id}`);
+  if (!isValidPluginId(id)) throw new Error(STRINGS.errors.invalidPluginId(id));
   return `${configDir}/plugins/${id}`;
 }
 

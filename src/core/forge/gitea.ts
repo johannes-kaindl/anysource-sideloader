@@ -1,5 +1,6 @@
 import type { ReleaseInfo, RepoRef } from "./types";
 import { normalizeVersion } from "../version";
+import { STRINGS } from "../../i18n/strings";
 
 export function latestReleaseUrl(ref: RepoRef): string {
   return `${ref.baseUrl}/api/v1/repos/${ref.owner}/${ref.repo}/releases/latest`;
@@ -31,17 +32,17 @@ function toReleaseInfo(rel: unknown): ReleaseInfo | null {
 
 export function parseGiteaRelease(jsonText: string): ReleaseInfo {
   let data: unknown;
-  try { data = JSON.parse(jsonText); } catch { throw new Error("Antwort ist kein JSON"); }
+  try { data = JSON.parse(jsonText); } catch { throw new Error(STRINGS.errors.notJson); }
   const rel = toReleaseInfo(data);
-  if (!rel) throw new Error("Antwort ist kein Release (tag_name fehlt)");
+  if (!rel) throw new Error(STRINGS.errors.notARelease);
   return rel;
 }
 
 /** Eintraege ohne `tag_name` werden uebersprungen statt die ganze Liste zu verwerfen. */
 export function parseGiteaReleaseList(jsonText: string): ReleaseInfo[] {
   let data: unknown;
-  try { data = JSON.parse(jsonText); } catch { throw new Error("Antwort ist kein JSON"); }
-  if (!Array.isArray(data)) throw new Error("Antwort ist keine Release-Liste");
+  try { data = JSON.parse(jsonText); } catch { throw new Error(STRINGS.errors.notJson); }
+  if (!Array.isArray(data)) throw new Error(STRINGS.errors.notAReleaseList);
   const out: ReleaseInfo[] = [];
   for (const item of data) {
     const rel = toReleaseInfo(item);

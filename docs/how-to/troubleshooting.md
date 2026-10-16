@@ -24,7 +24,7 @@
 
 **Fix:** use the command **Install plugin from URL** (command palette) and paste the front page of the repository, for example `https://github.com/owner/repo`. Which forges are recognised is listed in [Forge support](../reference/forge-support.md).
 
-### "Download fehlgeschlagen fuer manifest.json (…): HTTP 404"
+### "Download failed for manifest.json (…): HTTP 404"
 
 **Cause:** the plugin found no Gitea-compatible API on that host and fell back to reading raw files from the repository. That fallback only knows the branch names `main` and `master`, and the message always names the `main` attempt — so a repository whose default branch is called `develop` reports a failure about `main`. Two other causes produce the same message: the repository is private and no token is set for its host, or the instance hides even its version endpoint behind a login.
 
@@ -34,13 +34,13 @@
 2. If the repository is private, add a token for its host under **Access tokens** in the plugin's settings — see [Use private repositories](private-repositories.md).
 3. If the default branch has another name, the raw path cannot install it. Publish a release instead, which does not depend on the branch name.
 
-### "Pflicht-Asset fehlt im Release: main.js" (or `manifest.json`)
+### "Required asset missing from the release: main.js" (or `manifest.json`)
 
 **Cause:** the latest release of the repository does not carry that file as a release asset. The plugin installs release assets, not the source tree.
 
 **Fix:** ask the plugin's author to attach `main.js` and `manifest.json` to the release, or install a plugin that does.
 
-### "Download fehlgeschlagen fuer … HTTP 401 / 403 / 404" on a release or asset
+### "Download failed for … HTTP 401 / 403 / 404" on a release or asset
 
 **Cause:** without a token the forge answers as if a private repository did not exist. With a token, it may be one that lacks read access, or one stored for a different host.
 
@@ -90,9 +90,9 @@
 
 **Fix:** open the URL in a browser; it must return the JSON file itself. For a private catalog, add a token for its host. To change the list, go to **Catalogs** in the settings: remove the entry and use **Add catalog URL**.
 
-### "No catalog could be loaded (Katalog: …)"
+### "No catalog could be loaded (Catalog: …)"
 
-**Cause:** the URL answers, but the file is not a valid catalog. The three messages are `Katalog: kein Objekt` (the JSON is not an object), `Katalog: catalogVersion … wird nicht unterstuetzt` (only version 1 is supported) and `Katalog: name fehlt` (the `name` field is missing). A reply that is not JSON at all, such as an HTML login page, fails the same way.
+**Cause:** the URL answers, but the file is not a valid catalog. The three messages are `Catalog: not an object` (the JSON is not an object), `Catalog: catalogVersion … is not supported` (only version 1 is supported) and `Catalog: name is missing` (the `name` field is missing). A reply that is not JSON at all, such as an HTML login page, fails the same way.
 
 **Fix:** open the URL in a browser and compare the file with [Catalog format](../reference/catalog-format.md).
 

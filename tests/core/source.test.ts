@@ -41,7 +41,7 @@ it("fetchLatestRelease (raw): 404 auf manifest.json wirft sprechenden Fehler sta
       { kind: "raw", baseUrl: "https://example.com", owner: "o", repo: "r" },
       null,
     ),
-  ).rejects.toThrow(/manifest\.json/);
+  ).rejects.toThrow(/^Download failed for manifest\.json \(.*\): HTTP 404$/);
 });
 
 it("fetchLatestRelease (github): non-200 wirft sprechenden Fehler statt 'tag_name fehlt' (I6)", async () => {
@@ -92,7 +92,7 @@ describe("fetchPluginFiles", () => {
   it("wirft, wenn main.js fehlt", async () => {
     const rel = { ...REL, assets: [REL.assets[1]!] };
     await expect(fetchPluginFiles(fakeHttp({ "https://x/dl/manifest.json": { text: MANIFEST } }), REF, rel, null))
-      .rejects.toThrow(/main\.js/);
+      .rejects.toThrow("Required asset missing from the release: main.js");
   });
   it("meldet mismatch, wenn checksums.sha256 nicht passt", async () => {
     const rel = { ...REL, assets: [...REL.assets, { name: "checksums.sha256", downloadUrl: "https://x/dl/c" }] };

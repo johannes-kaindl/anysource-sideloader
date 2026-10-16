@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Error messages from the source are in English.** "The action failed: …" and the update-check summary now carry English texts ("Download failed for …", "Required asset missing from the release: …", "Catalog: name is missing", "Response is not JSON" and the like) instead of German ones; the troubleshooting page quotes the same words. Only the text changed, not when an error is raised.
+
 ## [0.6.0] — 2026-10-14
 
 ### Fixed

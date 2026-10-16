@@ -1,5 +1,6 @@
 import { isValidPluginId } from "./install";
 import { parseRepoUrl } from "./forge/detect";
+import { STRINGS } from "../i18n/strings";
 
 export interface CatalogEntry {
   id: string;
@@ -33,11 +34,11 @@ function parseEntry(v: unknown): CatalogEntry | null {
 
 export function parseCatalog(jsonText: string): Catalog {
   const data: unknown = JSON.parse(jsonText);
-  if (!isPlainObject(data)) throw new Error("Katalog: kein Objekt");
+  if (!isPlainObject(data)) throw new Error(STRINGS.errors.catalogNotObject);
   if (data.catalogVersion !== 1) {
-    throw new Error(`Katalog: catalogVersion ${String(data.catalogVersion)} wird nicht unterstuetzt`);
+    throw new Error(STRINGS.errors.catalogVersionUnsupported(String(data.catalogVersion)));
   }
-  if (typeof data.name !== "string") throw new Error("Katalog: name fehlt");
+  if (typeof data.name !== "string") throw new Error(STRINGS.errors.catalogNameMissing);
   const rawPlugins = Array.isArray(data.plugins) ? data.plugins : [];
   const plugins: CatalogEntry[] = [];
   for (const entry of rawPlugins) {

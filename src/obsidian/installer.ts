@@ -1,6 +1,7 @@
 import type { App } from "obsidian";
 import { parsePluginManifest, pluginDir, type PluginManifestData } from "../core/install";
 import type { FetchedPlugin } from "../core/source";
+import { STRINGS } from "../i18n/strings";
 
 /** Schmaler Port ueber `app.vault.adapter` — testbar mit einem In-Memory-Fake, ohne echtes
  *  Obsidian. Die Methoden bilden genau den Ausschnitt der `DataAdapter`-API ab, den dieses
@@ -40,7 +41,7 @@ export async function writePluginFiles(
   // geprueft vertrauenswuerdig — hier wird verweigert, statt sie auf Platte zu schreiben.
   if (fetched.checksums === "mismatch") {
     throw new Error(
-      `Checksum-Verifikation fehlgeschlagen fuer ${fetched.manifest.id}: geladene Dateien werden nicht geschrieben`,
+      STRINGS.errors.checksumVerificationFailed(fetched.manifest.id),
     );
   }
   const dir = pluginDir(configDir, fetched.manifest.id);
@@ -52,7 +53,7 @@ export async function writePluginFiles(
     // schreiben. `fetchPluginFiles` laedt heute nur main.js/manifest.json/styles.css,
     // aber der Schreib-Pfad verlaesst sich hier nicht darauf, sondern erzwingt es selbst.
     if (!CODE_FILES.includes(file.name)) {
-      throw new Error(`Unerwarteter Dateiname im Release, wird nicht geschrieben: ${file.name}`);
+      throw new Error(STRINGS.errors.unexpectedFileName(file.name));
     }
     await port.writeBinary(`${dir}/${file.name}`, file.data);
   }
