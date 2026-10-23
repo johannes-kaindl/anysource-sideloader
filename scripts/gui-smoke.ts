@@ -71,6 +71,7 @@ import {
   pollUntil,
   releaseAlwaysOnTop,
   requireVisible,
+  schliesseEinstellungen,
 } from "../../tools/obsidian-cdp/cdp.js";
 import { buildVault, requireEigenerBuild, stagingVaultDir } from "../../tools/obsidian-cdp/vault.js";
 import {
@@ -562,9 +563,7 @@ async function mitSettings<T>(
       await releaseAlwaysOnTop(stelle.cdp).catch(() => undefined);
       stelle.cdp.close();
     }
-    await cdp
-      .evaluate(`app.setting.close(); await new Promise((r) => setTimeout(r, 300)); return true;`)
-      .catch(() => undefined);
+    await schliesseEinstellungen(cdp);
   }
 }
 
@@ -1767,7 +1766,7 @@ const SECTIONS: Section[] = [
           await releaseAlwaysOnTop(stelle.cdp).catch(() => undefined);
           stelle.cdp.close();
         }
-        await cdp.evaluate(`app.setting.close(); await new Promise((r) => setTimeout(r, 300)); return true;`).catch(() => undefined);
+        await schliesseEinstellungen(cdp);
       }
     },
   },

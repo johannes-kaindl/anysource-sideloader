@@ -35,7 +35,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { argv, cwd, env, exit } from "node:process";
 
-import { attachTo, Cdp, pollUntil, schliesseDialog } from "../../tools/obsidian-cdp/cdp.js";
+import { attachTo, Cdp, pollUntil, schliesseDialog, schliesseEinstellungen } from "../../tools/obsidian-cdp/cdp.js";
 import { capture, setWindowSize, writeShot, type Rect, type ShotOptions } from "../../tools/obsidian-cdp/shot.js";
 import { buildVault, stagingVaultDir } from "../../tools/obsidian-cdp/vault.js";
 
@@ -147,7 +147,7 @@ async function einstellungenOeffnen(ctx: Kontext): Promise<Cdp | null> {
 async function settingsSchliessen(ctx: Kontext, fenster: Cdp): Promise<void> {
   await fenster.evaluate("window.close(); return true;").catch(() => undefined);
   fenster.close();
-  await ctx.workspace.evaluate(`app.setting.close(); return true;`).catch(() => undefined);
+  await schliesseEinstellungen(ctx.workspace);
 }
 
 /** Rechteck der Sektion zwischen zwei Ueberschriften (die zweite darf fehlen = bis zum Ende). */
@@ -269,10 +269,7 @@ const SHOTS: Shot[] = [
 async function aufraeumen(ctx: Kontext): Promise<void> {
   // Beide Formen des Schliessen-Knopfs (`.modal-close-button` bis 1.12, `.modal-header-button` in 1.14.4).
   await schliesseDialog(ctx.workspace).catch(() => undefined);
-  await ctx.workspace.evaluate(`
-    app.setting.close();
-    return true;
-  `).catch(() => undefined);
+  await schliesseEinstellungen(ctx.workspace);
   await new Promise((r) => setTimeout(r, 400));
 }
 
