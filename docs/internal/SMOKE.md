@@ -312,6 +312,7 @@ gelten. Ohne Netz „nichts gemessen“, mit `--ohne-netz` `übersprungen`.
 
 | Datum | Obsidian | Ergebnis | Gegenprobe |
 |---|---|---|---|
+| 2026-10-25 (Messreihe Abbruch) | 1.14.5 | **44/44 in 11 von 15 vollen Läufen** (frische Prozesse, `--exclusive all` ×10, `focus` ×5); **Abbruch „Zeitüberschreitung: Runtime.evaluate“ in 3 von 15**, immer nach G5, beim Verlassen des ersten Einstellungs-Blocks von Abschnitt G; ein Lauf E8 rot | `--section adoption` allein: 3 von 10 brechen am selben Punkt ab (6 von 25 insgesamt, drei Renderer-Exceptions ohne Text je Abbruch). Brücke `schliesseEinstellungen` als Verdacht, nicht belegt; Fix liegt im Dach. Tabelle: Cockpit-Task |
 | 2026-09-01 | 1.13.7 | **34/36** — rot: E2, E3 (Befund unten) · F2 für 303 **und** 302 gemessen |
 | 2026-09-03 (Zeilen-CTA) | 1.13.7 | **42/42** — C13 neu, C9 umgeschrieben | Zwei Mutationen am Prüfling, jede von genau EINEM Unit-Test gefangen: `setCta()` entfernt → „CTA nennt die Zielversion" rot · Indikator zusätzlich gezeichnet → „sagt es genau einmal" rot. Dabei fiel auf, dass die C-Tabelle dieser Datei seit 0.3.0 abgedriftet war |
 | 2026-09-02 (Eingabe/Neuzeichnen) | 1.13.7 | **41/41** — E9 neu | A/B am selben Treiber: ohne die Cursor-Rettung **genau E9** rot (`Cursor: 34`, erwartet 8), Wert und Fokus dabei grün — die Gegenprobe hat die Aufgabe zugleich korrigiert, die von drei kaputten Größen ausging. E5 nach dem Fix 3/3 rot → als Treiber-Wettrennen belegt (`pendingHost` korrekt, Klick verfehlt) und behoben, danach 3/3 grün |
